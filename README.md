@@ -328,13 +328,3 @@ Each Nest app has a **multi-stage `Dockerfile`**. The frontend image builds stat
 **Kubernetes (`infrastructure/kubernetes/`):** Edit `02-secret.yaml`, then run **`kubectl apply -k infrastructure/kubernetes/`** (or apply the YAMLs in numeric order). Tag images as `healthcare/<service>:latest` (or adjust YAML) and load them into your cluster.
 
 Install **ingress-nginx**, then apply `ingress.yaml`. Map **`healthcare.local`** to your ingress IP. API routes include `/api/payments` → payment-service. Rebuild the frontend with **build-args** documented in `infrastructure/kubernetes/frontend.yaml` so `VITE_*` values use `/api/...` prefixes (same host as the Ingress).
-
-## Cursor-style prompts (copy-paste)
-
-**Backend — Doctor service**
-
-> Create a GET endpoint `/doctors/search` in the Doctor Service. Use Mongoose on a Doctor collection. Support query params: `name`, `specialty`, `availability` (true/false), `day` (weekday filter), and `location`. Use case-insensitive regex for `name`. Return `name`, `specialty`, `experience`, `profilePicture`, structured `availability` slots (day, startTime, endTime, maxPatients, isAvailable) + `timeZone: Asia/Colombo`. Validate with DTOs (`class-validator`). Add indexes on `name`, `specialty`, and availability. Use controller → service → repository. Use **moment-timezone** for Colombo time handling.
-
-**Frontend — Find a Doctor**
-
-> Build a “Find a Doctor” page with React + Tailwind. Large search input + Search button + location field. Specialty chips (General, Cardiology, Dental, etc.). **Weekday filter chips** for real-time backend filtering. Glass doctor cards: circular photo, name, specialty, years badge, **availability day badges** + **View slots** hover tooltip with times. Skeleton while loading. Debounce search input 500ms. Axios `GET` to `${VITE_DOCTOR_API_URL}/doctors/search`. Empty state when no results.
