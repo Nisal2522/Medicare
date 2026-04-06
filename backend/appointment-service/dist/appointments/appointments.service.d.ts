@@ -1,0 +1,145 @@
+import { HttpService } from '@nestjs/axios';
+import { OnModuleInit } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ClientProxy } from '@nestjs/microservices';
+import { Model } from 'mongoose';
+import { AppointmentDocument, DoctorApprovalStatus } from './appointment.schema';
+import { BookAppointmentDto } from './dto/book-appointment.dto';
+export declare class AppointmentsService implements OnModuleInit {
+    private readonly appointmentModel;
+    private readonly http;
+    private readonly jwt;
+    private readonly notifications;
+    private readonly logger;
+    constructor(appointmentModel: Model<AppointmentDocument>, http: HttpService, jwt: JwtService, notifications: ClientProxy);
+    onModuleInit(): Promise<void>;
+    private ensureSlotIndexes;
+    effectiveDoctorApproval(o: Record<string, unknown>): DoctorApprovalStatus;
+    private mapRow;
+    private parseDateKey;
+    private fetchDoctor;
+    private resolveSlot;
+    private weekdayFromYmd;
+    private extractBearer;
+    private validatePatientIdentity;
+    private tryLinkPatientId;
+    book(dto: BookAppointmentDto, authHeader?: string): Promise<{
+        message: string;
+        appointment: ReturnType<AppointmentsService['mapRow']>;
+    }>;
+    listByPatientEmail(patientEmail: string): Promise<{
+        id: string;
+        doctorId: string;
+        doctorName: string;
+        doctorSpecialty: string | undefined;
+        patientId: string | undefined;
+        patientEmail: string;
+        patientName: string;
+        patientPhone: string | undefined;
+        doctorPhone: string | undefined;
+        doctorEmail: string | undefined;
+        appointmentDateKey: string;
+        day: string;
+        startTime: string;
+        endTime: string;
+        consultationFee: number;
+        status: string;
+        paymentStatus: string;
+        doctorApprovalStatus: DoctorApprovalStatus;
+        createdAt: string | undefined;
+    }[]>;
+    listForPatient(patientId: string, jwtSub: string, patientEmail: string): Promise<{
+        id: string;
+        doctorId: string;
+        doctorName: string;
+        doctorSpecialty: string | undefined;
+        patientId: string | undefined;
+        patientEmail: string;
+        patientName: string;
+        patientPhone: string | undefined;
+        doctorPhone: string | undefined;
+        doctorEmail: string | undefined;
+        appointmentDateKey: string;
+        day: string;
+        startTime: string;
+        endTime: string;
+        consultationFee: number;
+        status: string;
+        paymentStatus: string;
+        doctorApprovalStatus: DoctorApprovalStatus;
+        createdAt: string | undefined;
+    }[]>;
+    listForDoctor(doctorSub: string, opts?: {
+        date?: string;
+        fromDate?: string;
+        limit?: number;
+    }): Promise<{
+        id: string;
+        doctorId: string;
+        doctorName: string;
+        doctorSpecialty: string | undefined;
+        patientId: string | undefined;
+        patientEmail: string;
+        patientName: string;
+        patientPhone: string | undefined;
+        doctorPhone: string | undefined;
+        doctorEmail: string | undefined;
+        appointmentDateKey: string;
+        day: string;
+        startTime: string;
+        endTime: string;
+        consultationFee: number;
+        status: string;
+        paymentStatus: string;
+        doctorApprovalStatus: DoctorApprovalStatus;
+        createdAt: string | undefined;
+    }[]>;
+    getDoctorStats(doctorSub: string, month?: string): Promise<{
+        dateKey: string;
+        monthKey: string;
+        todayAppointmentCount: number;
+        monthCompletedCount: number;
+        monthEarningsTotal: number;
+        pendingAppointmentCount: number;
+        confirmedAppointmentCount: number;
+        completedAppointmentCount: number;
+        totalActiveAppointmentCount: number;
+    }>;
+    getPublicStats(): Promise<{
+        consultationsToday: number;
+        totalBookings: number;
+        dateKey: string;
+    }>;
+    getPlatformSummary(): Promise<{
+        totalAppointments: number;
+        totalRevenue: number;
+        monthlyRevenue: {
+            month: string;
+            revenue: number;
+        }[];
+    }>;
+    getPaymentPreviewForCheckout(id: string): Promise<{
+        appointmentId: string;
+        amountMinor: number;
+        currency: string;
+        patientEmail: string;
+        status: string;
+    }>;
+    getTelecomSnapshot(id: string): Promise<{
+        doctorId: string;
+        patientId?: string;
+        patientEmail: string;
+        status: string;
+        doctorApprovalStatus: DoctorApprovalStatus;
+    }>;
+    setDoctorApproval(appointmentId: string, doctorSub: string, decision: 'approve' | 'reject'): Promise<{
+        message: string;
+        appointment: ReturnType<AppointmentsService['mapRow']>;
+    }>;
+    confirmPaymentSuccess(appointmentId: string): Promise<void>;
+    cancelByPatient(appointmentId: string, patientEmail: string, authHeader?: string): Promise<{
+        message: string;
+    }>;
+    findByIdForPrescription(appointmentId: string, doctorSub: string): Promise<AppointmentDocument>;
+    completeAfterPrescription(appointmentId: string, doctorSub: string): Promise<void>;
+}

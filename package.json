@@ -1,0 +1,10 @@
+{
+  "name": "healthcare-platform",
+  "private": true,
+  "description": "Run verify from repo root after npm ci in frontend and each backend service.",
+  "scripts": {
+    "verify:frontend": "cd frontend && npm run verify",
+    "verify:backends": "node scripts/verify-backends.cjs",
+    "verify": "npm run verify:backends && npm run verify:frontend"
+  }
+}

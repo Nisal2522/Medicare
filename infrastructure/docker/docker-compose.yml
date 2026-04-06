@@ -1,0 +1,12 @@
+# Compose file now lives at the repository root (`../../docker-compose.yml`).
+# Docker loads `.env` from the same directory as the *primary* compose file you use.
+# If you run compose from this folder, root `.env` is ignored and MongoDB falls back to local.
+#
+# Always run from repository root (healthcare-platform):
+#   docker compose up --build
+#
+# From this folder only, force project dir so root .env loads:
+#   docker compose --project-directory ../.. -f docker-compose.yml up --build
+
+include:
+  - path: ../../docker-compose.yml

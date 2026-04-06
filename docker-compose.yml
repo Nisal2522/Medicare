@@ -1,0 +1,226 @@
+# Full stack: optional local MongoDB, RabbitMQ, Nest services, SPA.
+# Run only from this folder (repository root) so `.env` is loaded for variable substitution:
+#   docker compose up --build
+#
+# MongoDB Atlas: set MONGO_URI_* in `.env` (see .env.example). If unset, services use local `mongodb` container.
+# Browser: http://localhost:8080
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: healthcare-mongodb
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - healthcare
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: healthcare-rabbitmq
+    restart: unless-stopped
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 5s
+      timeout: 15s
+      retries: 12
+      start_period: 40s
+    networks:
+      - healthcare
+
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3002:3002'
+    environment:
+      PORT: '3002'
+      MONGO_URI: ${MONGO_URI_AUTH:-mongodb://mongodb:27017/healthcare-platform}
+      JWT_SECRET: ${JWT_SECRET:-change-me-secret}
+      DOCTOR_SERVICE_URL: http://doctor-service:3000
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3003
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-dev-internal-key}
+    depends_on:
+      - mongodb
+    networks:
+      - healthcare
+
+  doctor-service:
+    build:
+      context: ./backend/doctor-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    env_file:
+      - ./backend/doctor-service/.env
+    environment:
+      PORT: '3000'
+      MONGO_URI: ${MONGO_URI_DOCTOR:-mongodb://mongodb:27017/healthcare-platform}
+      JWT_SECRET: ${JWT_SECRET:-change-me-secret}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-dev-internal-key}
+    depends_on:
+      - mongodb
+    networks:
+      - healthcare
+
+  appointment-service:
+    build:
+      context: ./backend/appointment-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3003:3003'
+    environment:
+      PORT: '3003'
+      MONGO_URI: ${MONGO_URI_APPOINTMENT:-mongodb://mongodb:27017/healthcare-platform}
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      DOCTOR_SERVICE_URL: http://doctor-service:3000
+      JWT_SECRET: ${JWT_SECRET:-change-me-secret}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-dev-internal-key}
+    depends_on:
+      mongodb:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      doctor-service:
+        condition: service_started
+    networks:
+      - healthcare
+
+  payment-service:
+    build:
+      context: ./backend/payment-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3007:3007'
+    env_file:
+      - ./backend/payment-service/.env
+    environment:
+      PORT: '3007'
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3003
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-dev-internal-key}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      appointment-service:
+        condition: service_started
+    networks:
+      - healthcare
+
+  patient-service:
+    build:
+      context: ./backend/patient-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3004:3004'
+    env_file:
+      - ./backend/patient-service/.env
+    environment:
+      PORT: '3004'
+      MONGO_URI: ${MONGO_URI_PATIENT:-mongodb://mongodb:27017/healthcare-platform}
+      JWT_SECRET: ${JWT_SECRET:-change-me-secret}
+    depends_on:
+      - mongodb
+    networks:
+      - healthcare
+
+  telemedicine-service:
+    build:
+      context: ./backend/telemedicine-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3005:3005'
+    env_file:
+      - ./backend/telemedicine-service/.env
+    environment:
+      PORT: '3005'
+      MONGO_URI: ${MONGO_URI_TELEMEDICINE:-mongodb://mongodb:27017/healthcare-platform}
+      JWT_SECRET: ${JWT_SECRET:-change-me-secret}
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3003
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-dev-internal-key}
+    depends_on:
+      - mongodb
+    networks:
+      - healthcare
+
+  ai-service:
+    build:
+      context: ./backend/ai-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3006:3006'
+    environment:
+      PORT: '3006'
+      JWT_SECRET: ${JWT_SECRET:-change-me-secret}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+    networks:
+      - healthcare
+
+  notification-service:
+    build:
+      context: ./backend/notification-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./backend/notification-service/.env
+    environment:
+      RABBITMQ_URL: amqp://rabbitmq:5672
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - healthcare
+
+  # Frontend image: if build fails with "parent snapshot ... does not exist", Docker BuildKit
+  # cache is corrupted. Fix: `docker builder prune -af` then `docker compose build --no-cache frontend`
+  # (or restart Docker Desktop, then rebuild).
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:3002
+        VITE_APPOINTMENT_API_URL: http://localhost:3003
+        VITE_DOCTOR_API_URL: http://localhost:3000
+        VITE_PATIENT_API_URL: http://localhost:3004
+        VITE_TELEMEDICINE_API_URL: http://localhost:3005
+        VITE_AI_API_URL: http://localhost:3006
+        VITE_PAYMENT_API_URL: http://localhost:3007
+    restart: unless-stopped
+    ports:
+      - '8080:80'
+    depends_on:
+      - auth-service
+      - doctor-service
+      - appointment-service
+      - payment-service
+      - patient-service
+      - telemedicine-service
+      - ai-service
+      - notification-service
+    networks:
+      - healthcare
+
+networks:
+  healthcare:
+    driver: bridge
+
+volumes:
+  mongo_data:
+  rabbitmq_data:

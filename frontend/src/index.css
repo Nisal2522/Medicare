@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: #ffffff;
+}
+
+/* Futuristic white canvas: soft aurora only (no grid lines) */
+.page-futuristic {
+  background-color: #ffffff;
+  background-image:
+    radial-gradient(ellipse 100% 80% at 50% -30%, rgb(56 189 248 / 0.07), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 50%, rgb(37 99 235 / 0.05), transparent 50%);
+  background-size: 100% 100%, 100% 100%;
+  background-attachment: scroll;
+}
+
+@layer utilities {
+  .skip-link:focus {
+    position: fixed;
+    left: 1rem;
+    top: 1rem;
+    z-index: 100;
+    width: auto;
+    height: auto;
+    padding: 0.5rem 0.75rem;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    border-radius: 0.5rem;
+    background-color: rgb(2 132 199);
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 600;
+    outline: 2px solid white;
+    outline-offset: 2px;
+  }
+}

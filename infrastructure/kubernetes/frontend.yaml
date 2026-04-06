@@ -1,0 +1,62 @@
+# Build image with Ingress-relative API roots, e.g. (from repo root):
+# docker build -f frontend/Dockerfile frontend -t healthcare/frontend:latest \
+#   --build-arg VITE_API_URL=/api/auth \
+#   --build-arg VITE_APPOINTMENT_API_URL=/api/appointments \
+#   --build-arg VITE_DOCTOR_API_URL=/api/doctor \
+#   --build-arg VITE_PATIENT_API_URL=/api/patient \
+#   --build-arg VITE_TELEMEDICINE_API_URL=/api/telecom \
+#   --build-arg VITE_AI_API_URL=/api/ai \
+#   --build-arg VITE_PAYMENT_API_URL=/api/payments
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: healthcare
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: healthcare/frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: healthcare
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
