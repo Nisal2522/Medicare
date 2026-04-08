@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Inject } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
@@ -159,5 +159,214 @@ export class PrescriptionsService {
         : undefined,
       };
     });
+  }
+
+  async listForPatient(
+    patientSub: string,
+    opts?: { q?: string; limit?: number },
+  ): Promise<
+    Array<{
+      id: string;
+      appointmentId: string;
+      diagnosis: string;
+      medicinesSummary: string;
+      followUpDate?: string;
+      createdAt?: string;
+    }>
+  > {
+    const pid = new Types.ObjectId(patientSub);
+    const q = opts?.q?.trim();
+    const cap = Math.max(1, Math.min(100, Number(opts?.limit ?? 25)));
+
+    const query: {
+      patientId: Types.ObjectId;
+      $or?: Array<Record<string, unknown>>;
+    } = { patientId: pid };
+
+    if (q) {
+      const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      query.$or = [
+        { diagnosis: rx },
+        { symptoms: rx },
+        { clinicalNotes: rx },
+        { specialAdvice: rx },
+        { 'medicines.name': rx },
+      ];
+    }
+
+    const rows = await this.prescriptionModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(cap)
+      .lean()
+      .exec();
+
+    return rows.map((o) => {
+      const row = o as typeof o & { createdAt?: Date };
+      return {
+        id: String(o._id),
+        appointmentId: String(o.appointmentId),
+        diagnosis: o.diagnosis,
+        medicinesSummary: (o.medicines ?? [])
+          .map((m) =>
+            [m.name, m.dosage, m.frequency, m.duration].filter(Boolean).join(' · '),
+          )
+          .join(', '),
+        followUpDate: o.followUpDate
+          ? new Date(o.followUpDate as Date).toISOString()
+          : undefined,
+        createdAt: row.createdAt
+          ? new Date(row.createdAt as Date).toISOString()
+          : undefined,
+      };
+    });
+  }
+
+  async getForPatient(
+    patientSub: string,
+    prescriptionId: string,
+  ): Promise<{
+    id: string;
+    appointmentId: string;
+    diagnosis: string;
+    symptoms?: string;
+    clinicalNotes?: string;
+    specialAdvice?: string;
+    labTests?: string;
+    followUpDate?: string;
+    patientName?: string;
+    patientAge?: string;
+    patientGender?: string;
+    medicines: Array<{
+      name: string;
+      dosage: string;
+      frequency?: string;
+      duration: string;
+      instructions?: string;
+    }>;
+    medicinesSummary: string;
+    createdAt?: string;
+  }> {
+    if (!Types.ObjectId.isValid(prescriptionId)) {
+      throw new NotFoundException('Prescription not found');
+    }
+    const pid = new Types.ObjectId(patientSub);
+    const rid = new Types.ObjectId(prescriptionId);
+    const row = await this.prescriptionModel
+      .findOne({ _id: rid, patientId: pid })
+      .lean()
+      .exec();
+
+    if (!row) {
+      throw new NotFoundException('Prescription not found');
+    }
+
+    const createdAtRow = row as typeof row & { createdAt?: Date };
+    return {
+      id: String(row._id),
+      appointmentId: String(row.appointmentId),
+      diagnosis: row.diagnosis,
+      symptoms: row.symptoms,
+      clinicalNotes: row.clinicalNotes,
+      specialAdvice: row.specialAdvice,
+      labTests: row.labTests,
+      followUpDate: row.followUpDate
+        ? new Date(row.followUpDate as Date).toISOString()
+        : undefined,
+      patientName: row.patientName,
+      patientAge: row.patientAge,
+      patientGender: row.patientGender,
+      medicines: (row.medicines ?? []).map((m) => ({
+        name: m.name,
+        dosage: m.dosage,
+        frequency: m.frequency,
+        duration: m.duration,
+        instructions: m.instructions,
+      })),
+      medicinesSummary: (row.medicines ?? [])
+        .map((m) =>
+          [m.name, m.dosage, m.frequency, m.duration].filter(Boolean).join(' · '),
+        )
+        .join(', '),
+      createdAt: createdAtRow.createdAt
+        ? new Date(createdAtRow.createdAt as Date).toISOString()
+        : undefined,
+    };
+  }
+
+  async getForDoctor(
+    doctorSub: string,
+    prescriptionId: string,
+  ): Promise<{
+    id: string;
+    patientId?: string;
+    appointmentId: string;
+    diagnosis: string;
+    symptoms?: string;
+    clinicalNotes?: string;
+    specialAdvice?: string;
+    labTests?: string;
+    followUpDate?: string;
+    patientName?: string;
+    patientAge?: string;
+    patientGender?: string;
+    patientEmail?: string;
+    medicines: Array<{
+      name: string;
+      dosage: string;
+      frequency?: string;
+      duration: string;
+      instructions?: string;
+    }>;
+    medicinesSummary: string;
+    createdAt?: string;
+  }> {
+    if (!Types.ObjectId.isValid(prescriptionId)) {
+      throw new NotFoundException('Prescription not found');
+    }
+    const did = new Types.ObjectId(doctorSub);
+    const rid = new Types.ObjectId(prescriptionId);
+    const row = await this.prescriptionModel
+      .findOne({ _id: rid, doctorId: did })
+      .lean()
+      .exec();
+
+    if (!row) {
+      throw new NotFoundException('Prescription not found');
+    }
+
+    const createdAtRow = row as typeof row & { createdAt?: Date };
+    return {
+      id: String(row._id),
+      patientId: row.patientId ? String(row.patientId) : undefined,
+      appointmentId: String(row.appointmentId),
+      diagnosis: row.diagnosis,
+      symptoms: row.symptoms,
+      clinicalNotes: row.clinicalNotes,
+      specialAdvice: row.specialAdvice,
+      labTests: row.labTests,
+      followUpDate: row.followUpDate
+        ? new Date(row.followUpDate as Date).toISOString()
+        : undefined,
+      patientName: row.patientName,
+      patientAge: row.patientAge,
+      patientGender: row.patientGender,
+      patientEmail: row.patientEmail,
+      medicines: (row.medicines ?? []).map((m) => ({
+        name: m.name,
+        dosage: m.dosage,
+        frequency: m.frequency,
+        duration: m.duration,
+        instructions: m.instructions,
+      })),
+      medicinesSummary: (row.medicines ?? [])
+        .map((m) =>
+          [m.name, m.dosage, m.frequency, m.duration].filter(Boolean).join(' · '),
+        )
+        .join(', '),
+      createdAt: createdAtRow.createdAt
+        ? new Date(createdAtRow.createdAt as Date).toISOString()
+        : undefined,
+    };
   }
 }

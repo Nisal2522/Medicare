@@ -29,10 +29,16 @@ export default function PatientAppointmentsPage() {
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const canCancel = (a: MyAppointmentRow) =>
-    a.status === 'PENDING_PAYMENT' ||
-    a.status === 'PENDING' ||
-    a.status === 'CONFIRMED'
+  const canCancel = (a: MyAppointmentRow) => {
+    const isApproved = (a.doctorApprovalStatus ?? 'PENDING') === 'APPROVED'
+    const isPaid = a.paymentStatus.trim().toLowerCase() === 'paid'
+    if (isApproved || isPaid) return false
+    return (
+      a.status === 'PENDING_PAYMENT' ||
+      a.status === 'PENDING' ||
+      a.status === 'CONFIRMED'
+    )
+  }
 
   useEffect(() => {
     if (!user || !token) return

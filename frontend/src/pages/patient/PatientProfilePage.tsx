@@ -19,6 +19,7 @@ import {
 } from '../../api/authProfileApi'
 import {
   fetchPatientProfile,
+  updatePatientProfile,
   uploadPatientAvatar,
 } from '../../api/patientApi'
 import { useAuth } from '../../context/AuthContext'
@@ -32,10 +33,25 @@ const profileSchema = z
     fullName: z.string().min(2, 'Enter your full name'),
     email: z.string().email('Enter a valid email'),
     phone: z.string().optional(),
+    age: z.string().default(''),
+    gender: z.union([
+      z.enum(['male', 'female', 'other', 'prefer-not-to-say']),
+      z.literal(''),
+    ]).default(''),
     currentPassword: z.string().optional(),
     newPassword: z.string().optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.age && data.age.trim()) {
+      const n = Number(data.age)
+      if (!Number.isFinite(n) || n < 0 || n > 130) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Age must be between 0 and 130',
+          path: ['age'],
+        })
+      }
+    }
     const hasNew = !!(data.newPassword && data.newPassword.length > 0)
     if (hasNew) {
       if (data.newPassword!.length < 8) {
@@ -55,7 +71,8 @@ const profileSchema = z
     }
   })
 
-type ProfileForm = z.infer<typeof profileSchema>
+type ProfileFormInput = z.input<typeof profileSchema>
+type ProfileForm = z.output<typeof profileSchema>
 
 export default function PatientProfilePage() {
   const { user, token, updateUser, setSession } = useAuth()
@@ -72,13 +89,16 @@ export default function PatientProfilePage() {
     register,
     handleSubmit,
     reset,
+    getValues,
     formState: { errors, isSubmitting },
-  } = useForm<ProfileForm>({
+  } = useForm<ProfileFormInput, unknown, ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       fullName: user?.fullName ?? '',
       email: user?.email ?? '',
       phone: user?.phone ?? '',
+      age: '',
+      gender: '',
       currentPassword: '',
       newPassword: '',
     },
@@ -107,6 +127,8 @@ export default function PatientProfilePage() {
           fullName: me.fullName,
           email: me.email,
           phone: me.phone,
+          age: '',
+          gender: '',
           currentPassword: '',
           newPassword: '',
         })
@@ -132,9 +154,22 @@ export default function PatientProfilePage() {
     ;(async () => {
       try {
         const p = await fetchPatientProfile(user.id, token)
-        if (!cancelled && p.avatarUrl) {
-          setAvatarUrl(p.avatarUrl)
-          updateUser({ avatarUrl: p.avatarUrl })
+        if (!cancelled) {
+          if (p.avatarUrl) {
+            setAvatarUrl(p.avatarUrl)
+            updateUser({ avatarUrl: p.avatarUrl })
+          }
+          reset({
+            ...getValues(),
+            age: typeof p.age === 'number' ? String(p.age) : '',
+            gender:
+              p.gender === 'male' ||
+              p.gender === 'female' ||
+              p.gender === 'other' ||
+              p.gender === 'prefer-not-to-say'
+                ? p.gender
+                : '',
+          })
         }
       } catch {
         if (!cancelled) {
@@ -147,7 +182,7 @@ export default function PatientProfilePage() {
     return () => {
       cancelled = true
     }
-  }, [user?.id, token, updateUser])
+  }, [user?.id, token, updateUser, reset, getValues])
 
   const runUpload = useCallback(
     async (file: File) => {
@@ -205,6 +240,16 @@ export default function PatientProfilePage() {
     }
     try {
       const { accessToken, user: u } = await patchAuthProfile(token, payload)
+      const normalizedAge = data.age?.trim() ? Number(data.age.trim()) : undefined
+      const normalizedGender = data.gender || undefined
+      if (user.id) {
+        await updatePatientProfile(user.id, accessToken, {
+          ...(typeof normalizedAge === 'number' && Number.isFinite(normalizedAge)
+            ? { age: normalizedAge }
+            : {}),
+          ...(normalizedGender ? { gender: normalizedGender } : {}),
+        })
+      }
       setSession(accessToken, {
         id: String(u.id),
         fullName: u.fullName,
@@ -217,6 +262,8 @@ export default function PatientProfilePage() {
         fullName: u.fullName,
         email: u.email,
         phone: u.phone,
+        age: data.age ?? '',
+        gender: data.gender ?? '',
         currentPassword: '',
         newPassword: '',
       })
@@ -490,6 +537,51 @@ export default function PatientProfilePage() {
                     {errors.phone.message}
                   </p>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5 text-left">
+                  <label htmlFor="profile-age" className={`${labelClass} text-left`}>
+                    Age
+                  </label>
+                  <input
+                    id="profile-age"
+                    type="number"
+                    min={0}
+                    max={130}
+                    disabled={formBusy}
+                    placeholder="Optional"
+                    className={fieldClass}
+                    {...register('age')}
+                  />
+                  {errors.age && (
+                    <p className="mt-1 text-left text-xs text-rose-600">
+                      {errors.age.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1.5 text-left">
+                  <label htmlFor="profile-gender" className={`${labelClass} text-left`}>
+                    Gender
+                  </label>
+                  <select
+                    id="profile-gender"
+                    disabled={formBusy}
+                    className={fieldClass}
+                    {...register('gender')}
+                  >
+                    <option value="">Select</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                    <option value="prefer-not-to-say">Prefer not to say</option>
+                  </select>
+                  {errors.gender && (
+                    <p className="mt-1 text-left text-xs text-rose-600">
+                      {errors.gender.message}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="flex justify-start pt-1 text-left">

@@ -6,6 +6,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { MedicalFileStorageService } from '../storage/medical-file.storage.service';
+import { UpdatePatientProfileDto } from './dto/update-patient-profile.dto';
 import { MedicalRecord, MedicalRecordType } from './medical-record.schema';
 import { PatientPayment, PaymentStatus } from './patient-payment.schema';
 import { PatientProfile } from './patient-profile.schema';
@@ -166,6 +167,46 @@ export class PatientsService {
     return {
       patientId,
       avatarUrl,
+      age: typeof doc?.age === 'number' ? doc.age : null,
+      gender: doc?.gender?.trim() ? doc.gender : null,
+    };
+  }
+
+  async updatePatientProfile(patientId: string, body: UpdatePatientProfileDto) {
+    if (!Types.ObjectId.isValid(patientId)) {
+      throw new BadRequestException('Invalid patient id');
+    }
+    const oid = new Types.ObjectId(patientId);
+    const updateSet: {
+      patientId: Types.ObjectId;
+      age?: number;
+      gender?: string;
+    } = { patientId: oid };
+
+    if (typeof body.age === 'number') {
+      updateSet.age = body.age;
+    }
+    if (typeof body.gender === 'string') {
+      updateSet.gender = body.gender;
+    }
+
+    const doc = await this.profileModel
+      .findOneAndUpdate(
+        { patientId: oid },
+        { $set: updateSet },
+        { upsert: true, new: true },
+      )
+      .lean()
+      .exec();
+
+    const avatarUrl = await this.medicalFileStorage.resolvePublicReadUrl(
+      doc?.avatarUrl,
+    );
+    return {
+      patientId,
+      avatarUrl,
+      age: typeof doc?.age === 'number' ? doc.age : null,
+      gender: doc?.gender?.trim() ? doc.gender : null,
     };
   }
 

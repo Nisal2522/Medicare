@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   Get,
   Param,
+  Patch,
   Post,
   Req,
   UploadedFile,
@@ -13,6 +14,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { UploadReportBodyDto } from './dto/upload-report-body.dto';
+import { UpdatePatientProfileDto } from './dto/update-patient-profile.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -85,6 +87,22 @@ export class PatientsController {
       throw new ForbiddenException('Access denied');
     }
     return this.patientsService.getPatientProfile(patientId);
+  }
+
+  @Patch(':id/profile')
+  @UseGuards(AuthGuard('jwt'))
+  updateProfile(
+    @Req() req: { user: JwtPayload },
+    @Param('id') patientId: string,
+    @Body() body: UpdatePatientProfileDto,
+  ) {
+    if (req.user.role !== 'PATIENT') {
+      throw new ForbiddenException('Only patients can update their profile');
+    }
+    if (req.user.sub !== patientId) {
+      throw new ForbiddenException('Access denied');
+    }
+    return this.patientsService.updatePatientProfile(patientId, body);
   }
 
   @Get(':id/records')

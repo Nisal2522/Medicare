@@ -20,6 +20,7 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  cancelAppointment,
   fetchPatientAppointments,
   type MyAppointmentRow,
 } from '../../api/appointmentApi'
@@ -30,6 +31,7 @@ import { dashboardCardClass } from '../../components/dashboardShell'
 import { useAuth } from '../../context/AuthContext'
 import { formatColomboYmd } from '../../lib/colomboDate'
 import { canJoinVideoSession } from '../../lib/appointmentJoin'
+import toast from 'react-hot-toast'
 
 function describeDashboardFetchFailure(
   label: string,
@@ -120,6 +122,7 @@ export default function PatientDashboardPage() {
   const [appointments, setAppointments] = useState<MyAppointmentRow[]>([])
   const [records, setRecords] = useState<MedicalRecordRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -200,6 +203,54 @@ export default function PatientDashboardPage() {
   }, [appointments])
 
   const nextAppointment = upcoming[0] ?? null
+  const canCancelAppointment = (a: MyAppointmentRow) => {
+    const isApproved = (a.doctorApprovalStatus ?? 'PENDING') === 'APPROVED'
+    const isPaid = a.paymentStatus.trim().toLowerCase() === 'paid'
+    if (isApproved || isPaid) return false
+    return (
+      a.status === 'PENDING_PAYMENT' ||
+      a.status === 'PENDING' ||
+      a.status === 'CONFIRMED'
+    )
+  }
+
+  async function handleCancelUpcoming(a: MyAppointmentRow) {
+    if (!token) return
+    setCancellingId(a.id)
+    try {
+      await cancelAppointment(a.id, a.patientEmail, token)
+      setAppointments((prev) =>
+        prev.map((row) =>
+          row.id === a.id
+            ? {
+                ...row,
+                status: 'CANCELLED',
+                paymentStatus:
+                  row.paymentStatus === 'Paid'
+                    ? 'Cancelled (refund pending)'
+                    : 'Cancelled',
+              }
+            : row,
+        ),
+      )
+      toast.success('Appointment cancelled')
+    } catch (e) {
+      const msg =
+        e && typeof e === 'object' && 'response' in e
+          ? (e as { response?: { data?: { message?: string | string[] } } })
+              .response?.data?.message
+          : undefined
+      toast.error(
+        typeof msg === 'string'
+          ? msg
+          : Array.isArray(msg)
+            ? msg[0] ?? 'Could not cancel appointment'
+            : 'Could not cancel appointment',
+      )
+    } finally {
+      setCancellingId(null)
+    }
+  }
 
   const totalBookings = appointments.length
   const pendingPayments = appointments.filter(
@@ -452,13 +503,14 @@ export default function PatientDashboardPage() {
                   <th className="pb-3 pr-4">Date</th>
                   <th className="pb-3 pr-4">Time</th>
                   <th className="pb-3 pr-4">Approval</th>
+                  <th className="pb-3 pr-4">Action</th>
                   <th className="pb-3">Session</th>
                 </tr>
               </thead>
               <tbody>
                 {upcoming.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-10 text-center text-slate-500">
+                    <td colSpan={7} className="py-10 text-center text-slate-500">
                       No upcoming appointments.
                     </td>
                   </tr>
@@ -477,6 +529,22 @@ export default function PatientDashboardPage() {
                         <DoctorApprovalChip
                           status={a.doctorApprovalStatus ?? 'PENDING'}
                         />
+                      </td>
+                      <td className="py-3 pr-4">
+                        {canCancelAppointment(a) ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleCancelUpcoming(a)}
+                            disabled={cancellingId === a.id}
+                            className="inline-flex items-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {cancellingId === a.id ? 'Cancelling...' : 'Cancel'}
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500">
+                            -
+                          </span>
+                        )}
                       </td>
                       <td className="py-3">
                         {canJoinVideoSession(a) ? (

@@ -43,6 +43,20 @@ type GlassSessionProps = {
   onLeaveComplete: () => void
 }
 
+function friendlyDeviceError(message: string): string {
+  const msg = message.toLowerCase()
+  if (msg.includes('not_readable') || msg.includes('notreadableerror')) {
+    return 'Camera is busy or blocked by another app. Close Zoom/Meet/Teams, then re-open this call.'
+  }
+  if (msg.includes('notallowederror') || msg.includes('permission denied')) {
+    return 'Camera or microphone permission is blocked. Allow access in browser site settings and retry.'
+  }
+  if (msg.includes('notfounderror') || msg.includes('requested device not found')) {
+    return 'No camera/microphone detected. Connect a device and retry.'
+  }
+  return message
+}
+
 function GlassTelemedicineSession({
   appointmentId,
   authToken,
@@ -79,10 +93,7 @@ function GlassTelemedicineSession({
     Boolean(appointmentId && authToken),
   )
 
-  usePublish(
-    [localMicrophoneTrack, localCameraTrack],
-    isConnected && !!localMicrophoneTrack && !!localCameraTrack,
-  )
+  usePublish([localMicrophoneTrack, localCameraTrack], isConnected && !!(localMicrophoneTrack || localCameraTrack))
 
   const remoteUsers = useRemoteUsers()
   const remotePeer = remoteUsers[0]
@@ -90,13 +101,15 @@ function GlassTelemedicineSession({
   const [muted, setMuted] = useState(false)
   const [videoOff, setVideoOff] = useState(false)
 
-  const telecomError =
-    joinError?.message ??
-    micErr?.message ??
-    camErr?.message ??
-    null
+  const fatalTelecomError = joinError?.message ?? null
+  const mediaWarning =
+    micErr?.message != null
+      ? friendlyDeviceError(micErr.message)
+      : camErr?.message != null
+        ? friendlyDeviceError(camErr.message)
+        : null
 
-  const connecting = joinLoading || !isConnected
+  const connecting = joinLoading || (!isConnected && !fatalTelecomError)
 
   const remoteLabel = userRole === 'PATIENT' ? 'Doctor' : 'Patient'
 
@@ -209,15 +222,23 @@ function GlassTelemedicineSession({
         </span>
       </div>
 
-      {telecomError && (
+      {(fatalTelecomError || mediaWarning) && (
         <div className="absolute left-4 right-4 top-20 z-30 sm:left-8 sm:right-8">
-          <div className="rounded-2xl border border-amber-400/35 bg-amber-950/70 px-4 py-3 text-sm text-amber-50 backdrop-blur-md">
-            {telecomError}
+          <div
+            className={`rounded-2xl px-4 py-3 text-sm backdrop-blur-md ${
+              fatalTelecomError
+                ? 'border border-rose-400/35 bg-rose-950/70 text-rose-50'
+                : 'border border-amber-400/35 bg-amber-950/70 text-amber-50'
+            }`}
+          >
+            {fatalTelecomError
+              ? `Connection error: ${fatalTelecomError}`
+              : mediaWarning}
           </div>
         </div>
       )}
 
-      {connecting && !telecomError && (
+      {connecting && !fatalTelecomError && (
         <div className="absolute inset-0 z-[25] flex flex-col items-center justify-center gap-3 bg-slate-950/75 backdrop-blur-md">
           <Loader2 className="h-10 w-10 animate-spin text-sky-400" aria-hidden />
           <p className="text-sm font-medium text-white/90">Connecting…</p>
@@ -235,7 +256,7 @@ function GlassTelemedicineSession({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             onClick={onOpenPrescription}
-            disabled={!!telecomError || connecting}
+            disabled={!!fatalTelecomError || connecting}
             className={`${glassBar} inline-flex items-center gap-2 text-sm font-semibold text-teal-100 transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40`}
           >
             <Pill className="h-4 w-4 shrink-0" aria-hidden />
@@ -251,7 +272,7 @@ function GlassTelemedicineSession({
           <button
             type="button"
             onClick={() => toggleMute()}
-            disabled={!!telecomError || connecting || !localMicrophoneTrack}
+            disabled={!!fatalTelecomError || connecting || !localMicrophoneTrack}
             className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-40"
             aria-label={muted ? 'Unmute' : 'Mute'}
           >
@@ -264,7 +285,7 @@ function GlassTelemedicineSession({
           <button
             type="button"
             onClick={() => toggleVideo()}
-            disabled={!!telecomError || connecting || !localCameraTrack}
+            disabled={!!fatalTelecomError || connecting || !localCameraTrack}
             className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-40"
             aria-label={videoOff ? 'Turn camera on' : 'Stop video'}
           >

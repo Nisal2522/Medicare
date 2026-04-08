@@ -132,6 +132,8 @@ export async function uploadPatientReport(
 export type PatientProfileResponse = {
   patientId: string
   avatarUrl: string | null
+  age?: number | null
+  gender?: string | null
 }
 
 export async function fetchPatientProfile(
@@ -140,6 +142,19 @@ export async function fetchPatientProfile(
 ): Promise<PatientProfileResponse> {
   const { data } = await patientApi.get<PatientProfileResponse>(
     `/patients/${patientId}/profile`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  return data
+}
+
+export async function updatePatientProfile(
+  patientId: string,
+  token: string,
+  body: { age?: number; gender?: 'male' | 'female' | 'other' | 'prefer-not-to-say' },
+): Promise<PatientProfileResponse> {
+  const { data } = await patientApi.patch<PatientProfileResponse>(
+    `/patients/${patientId}/profile`,
+    body,
     { headers: { Authorization: `Bearer ${token}` } },
   )
   return data

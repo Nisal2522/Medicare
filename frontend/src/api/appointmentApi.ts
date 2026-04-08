@@ -261,6 +261,25 @@ export type DoctorPrescriptionRow = {
   createdAt?: string
 }
 
+export type DoctorPrescriptionDetail = {
+  id: string
+  patientId?: string
+  appointmentId: string
+  diagnosis: string
+  symptoms?: string
+  clinicalNotes?: string
+  specialAdvice?: string
+  labTests?: string
+  followUpDate?: string
+  patientName?: string
+  patientAge?: string
+  patientGender?: string
+  patientEmail?: string
+  medicines: MedicineLine[]
+  medicinesSummary: string
+  createdAt?: string
+}
+
 export async function fetchDoctorPrescriptions(
   token: string,
   options?: { q?: string; limit?: number },
@@ -274,6 +293,71 @@ export async function fetchDoctorPrescriptions(
       },
       headers: { Authorization: `Bearer ${token}` },
     },
+  )
+  return data
+}
+
+export async function fetchDoctorPrescriptionDetail(
+  token: string,
+  prescriptionId: string,
+): Promise<DoctorPrescriptionDetail> {
+  const { data } = await appointmentApi.get<DoctorPrescriptionDetail>(
+    `/prescriptions/doctor/me/${prescriptionId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  return data
+}
+
+export type PatientPrescriptionRow = {
+  id: string
+  appointmentId: string
+  diagnosis: string
+  medicinesSummary: string
+  followUpDate?: string
+  createdAt?: string
+}
+
+export type PatientPrescriptionDetail = {
+  id: string
+  appointmentId: string
+  diagnosis: string
+  symptoms?: string
+  clinicalNotes?: string
+  specialAdvice?: string
+  labTests?: string
+  followUpDate?: string
+  patientName?: string
+  patientAge?: string
+  patientGender?: string
+  medicines: MedicineLine[]
+  medicinesSummary: string
+  createdAt?: string
+}
+
+export async function fetchPatientIssuedPrescriptions(
+  token: string,
+  options?: { q?: string; limit?: number },
+): Promise<PatientPrescriptionRow[]> {
+  const { data } = await appointmentApi.get<PatientPrescriptionRow[]>(
+    '/prescriptions/patient/me',
+    {
+      params: {
+        ...(options?.q ? { q: options.q } : {}),
+        ...(typeof options?.limit === 'number' ? { limit: options.limit } : {}),
+      },
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  )
+  return data
+}
+
+export async function fetchPatientPrescriptionDetail(
+  token: string,
+  prescriptionId: string,
+): Promise<PatientPrescriptionDetail> {
+  const { data } = await appointmentApi.get<PatientPrescriptionDetail>(
+    `/prescriptions/patient/me/${prescriptionId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
   )
   return data
 }

@@ -10,6 +10,12 @@ export class PatientProfile {
 
   @Prop({ type: String, default: '' })
   avatarUrl!: string;
+
+  @Prop({ type: Number, min: 0, max: 130 })
+  age?: number;
+
+  @Prop({ type: String, default: '' })
+  gender?: string;
 }
 
 export const PatientProfileSchema = SchemaFactory.createForClass(PatientProfile);

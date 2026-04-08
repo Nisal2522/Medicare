@@ -79,6 +79,7 @@ export default function App() {
             <Route path="availability" element={<DoctorAvailabilityPage />} />
             <Route path="prescriptions" element={<DoctorPrescriptionsPage />} />
             <Route path="profile" element={<DoctorProfilePage />} />
+            <Route path="consultation/:appointmentId" element={<VideoCallPage />} />
           </Route>
         </Route>
 
