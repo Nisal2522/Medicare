@@ -54,6 +54,7 @@ let Doctor = class Doctor {
     location;
     hospital;
     isVerified;
+    isActive;
 };
 exports.Doctor = Doctor;
 __decorate([
@@ -96,6 +97,10 @@ __decorate([
     (0, mongoose_1.Prop)({ default: false }),
     __metadata("design:type", Boolean)
 ], Doctor.prototype, "isVerified", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: true }),
+    __metadata("design:type", Boolean)
+], Doctor.prototype, "isActive", void 0);
 exports.Doctor = Doctor = __decorate([
     (0, mongoose_1.Schema)({ collection: 'doctors', timestamps: true })
 ], Doctor);

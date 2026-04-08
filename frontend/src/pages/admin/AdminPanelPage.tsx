@@ -33,6 +33,7 @@ import {
 import toast from 'react-hot-toast'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
+  activateAdminUser,
   deactivateAdminUser,
   fetchAdminDoctors,
   fetchAdminStats,
@@ -120,6 +121,10 @@ export default function AdminPanelPage() {
   const [loading, setLoading] = useState(true)
   const [userQuery, setUserQuery] = useState('')
   const [pendingId, setPendingId] = useState<string | null>(null)
+  const [confirmAction, setConfirmAction] = useState<{
+    kind: 'activate' | 'deactivate'
+    target: AdminUserRow
+  } | null>(null)
 
   const load = useCallback(async () => {
     if (!token) return
@@ -255,7 +260,6 @@ export default function AdminPanelPage() {
 
   async function onDeactivate(target: AdminUserRow) {
     if (!token) return
-    if (!window.confirm(`Deactivate ${target.fullName} (${target.email})?`)) return
     setPendingId(target.id)
     try {
       await deactivateAdminUser(token, target.id)
@@ -272,8 +276,84 @@ export default function AdminPanelPage() {
     }
   }
 
+  async function onActivate(target: AdminUserRow) {
+    if (!token) return
+    setPendingId(target.id)
+    try {
+      await activateAdminUser(token, target.id)
+      toast.success('User activated')
+      await load()
+    } catch (e) {
+      toast.error(
+        isAxiosError(e)
+          ? String((e.response?.data as { message?: string })?.message ?? 'Action failed')
+          : 'Action failed',
+      )
+    } finally {
+      setPendingId(null)
+    }
+  }
+
+  async function onToggleActive(target: AdminUserRow) {
+    setConfirmAction({
+      kind: target.isActive ? 'deactivate' : 'activate',
+      target,
+    })
+  }
+
+  async function onConfirmToggle() {
+    if (!confirmAction) return
+    const { kind, target } = confirmAction
+    setConfirmAction(null)
+    if (kind === 'deactivate') {
+      await onDeactivate(target)
+      return
+    }
+    await onActivate(target)
+  }
+
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-gradient-to-b from-sky-50/80 via-white to-slate-50 text-slate-900">
+      {confirmAction ? (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
+            aria-label="Close confirmation"
+            onClick={() => setConfirmAction(null)}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <h3 className="text-base font-semibold text-slate-900">
+              {confirmAction.kind === 'deactivate' ? 'Deactivate user' : 'Activate user'}
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">
+              {confirmAction.kind === 'deactivate' ? 'Deactivate' : 'Activate'}{' '}
+              <span className="font-medium text-slate-900">{confirmAction.target.fullName}</span>{' '}
+              ({confirmAction.target.email})?
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void onConfirmToggle()}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold text-white transition ${
+                  confirmAction.kind === 'deactivate'
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+              >
+                {confirmAction.kind === 'deactivate' ? 'Deactivate' : 'Activate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="shrink-0">
         <PatientDashboardNavbar
           portalSubtitle="Admin portal"
@@ -668,18 +748,24 @@ export default function AdminPanelPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {u.isActive ? (
-                            <button
-                              type="button"
-                              disabled={pendingId === u.id}
-                              onClick={() => void onDeactivate(u)}
-                              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
-                            >
-                              Deactivate
-                            </button>
-                          ) : (
-                            <span className="text-xs text-slate-500">-</span>
-                          )}
+                          <button
+                            type="button"
+                            disabled={pendingId === u.id}
+                            onClick={() => void onToggleActive(u)}
+                            className={`inline-flex min-w-[92px] items-center justify-center rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                              u.isActive
+                                ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                                : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                            }`}
+                          >
+                            {pendingId === u.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                            ) : u.isActive ? (
+                              'Deactivate'
+                            ) : (
+                              'Activate'
+                            )}
+                          </button>
                         </td>
                       </tr>
                     ))}

@@ -16,6 +16,7 @@ exports.InternalDoctorsController = void 0;
 const common_1 = require("@nestjs/common");
 const doctors_service_1 = require("../doctors/doctors.service");
 const provision_doctor_dto_1 = require("./dto/provision-doctor.dto");
+const set_doctor_active_dto_1 = require("./dto/set-doctor-active.dto");
 const internal_key_guard_1 = require("./internal-key.guard");
 let InternalDoctorsController = class InternalDoctorsController {
     doctorsService;
@@ -24,6 +25,9 @@ let InternalDoctorsController = class InternalDoctorsController {
     }
     provision(dto) {
         return this.doctorsService.provisionFromAuth(dto.userId, dto.fullName);
+    }
+    setActive(dto) {
+        return this.doctorsService.setActiveByInternal(dto.userId, dto.isActive);
     }
 };
 exports.InternalDoctorsController = InternalDoctorsController;
@@ -35,6 +39,14 @@ __decorate([
     __metadata("design:paramtypes", [provision_doctor_dto_1.ProvisionDoctorDto]),
     __metadata("design:returntype", void 0)
 ], InternalDoctorsController.prototype, "provision", null);
+__decorate([
+    (0, common_1.Post)('set-active'),
+    (0, common_1.UseGuards)(internal_key_guard_1.InternalKeyGuard),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [set_doctor_active_dto_1.SetDoctorActiveDto]),
+    __metadata("design:returntype", void 0)
+], InternalDoctorsController.prototype, "setActive", null);
 exports.InternalDoctorsController = InternalDoctorsController = __decorate([
     (0, common_1.Controller)('internal/doctors'),
     __metadata("design:paramtypes", [doctors_service_1.DoctorsService])

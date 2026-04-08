@@ -40,12 +40,17 @@ export declare class DoctorsService implements OnModuleInit {
     search(query: DoctorSearchQueryDto): Promise<DoctorSearchResult[]>;
     updateAvailability(jwtSub: string, role: string, dto: PatchAvailabilityDto): Promise<DoctorDetailResult>;
     findById(id: string): Promise<DoctorDetailResult>;
+    setActiveByInternal(id: string, active: boolean): Promise<{
+        id: string;
+        isActive: boolean;
+    }>;
     updateProfile(jwtSub: string, role: string, dto: PatchDoctorProfileDto): Promise<DoctorDetailResult>;
     uploadProfilePhoto(jwtSub: string, role: string, file: Express.Multer.File): Promise<{
         profilePicture: string;
         doctor: DoctorDetailResult;
     }>;
     private uploadDoctorAvatarToS3;
+    private resolvePublicReadUrl;
     private uploadDoctorAvatarToLocal;
     listAllForAdmin(): Promise<{
         id: string;

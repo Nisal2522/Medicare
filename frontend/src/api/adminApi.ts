@@ -57,6 +57,17 @@ export async function deactivateAdminUser(
   )
 }
 
+export async function activateAdminUser(
+  token: string,
+  userId: string,
+): Promise<void> {
+  await api.patch(
+    `/admin/users/${userId}/activate`,
+    {},
+    { headers: authHeaders(token) },
+  )
+}
+
 export async function verifyDoctorAsAdmin(
   token: string,
   doctorId: string,

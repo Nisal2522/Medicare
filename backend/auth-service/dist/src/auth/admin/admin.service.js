@@ -61,7 +61,24 @@ let AdminService = class AdminService {
         }
         target.isActive = false;
         await target.save();
+        await this.syncDoctorActivationIfNeeded(targetId, target.role, false);
         return { message: 'Account deactivated' };
+    }
+    async activateUser(actorSub, targetId) {
+        if (actorSub === targetId) {
+            throw new common_1.ForbiddenException('You cannot activate your own account from this endpoint');
+        }
+        const target = await this.userModel.findById(targetId).exec();
+        if (!target) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (target.role === role_enum_1.Role.ADMIN) {
+            throw new common_1.ForbiddenException('Cannot change admin accounts from this endpoint');
+        }
+        target.isActive = true;
+        await target.save();
+        await this.syncDoctorActivationIfNeeded(targetId, target.role, true);
+        return { message: 'Account activated' };
     }
     async getStats(authorization) {
         const [totalPatients, totalDoctors, newSignUpsToday] = await Promise.all([
@@ -143,6 +160,28 @@ let AdminService = class AdminService {
             const err = e;
             const msg = err.response?.data?.message ?? 'Doctor profile could not be created';
             throw new common_1.BadRequestException(typeof msg === 'string' ? msg : 'Doctor profile could not be created');
+        }
+    }
+    async syncDoctorActivationIfNeeded(userId, role, isActive) {
+        if (role !== role_enum_1.Role.DOCTOR) {
+            return;
+        }
+        const key = process.env.INTERNAL_SERVICE_KEY?.trim();
+        if (!key) {
+            return;
+        }
+        const base = process.env.DOCTOR_SERVICE_URL ?? 'http://localhost:3000';
+        const url = `${base.replace(/\/$/, '')}/internal/doctors/set-active`;
+        try {
+            await (0, rxjs_1.firstValueFrom)(this.http.post(url, { userId, isActive }, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Service-Key': key,
+                },
+                timeout: 12_000,
+            }));
+        }
+        catch {
         }
     }
 };

@@ -1,8 +1,10 @@
 import {
+  GetObjectCommand,
   DeleteObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
@@ -71,6 +73,29 @@ export class S3Service {
     if (!key) return;
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+  }
+
+  async createSignedReadUrl(
+    fileUrl: string,
+    expiresInSeconds = 3600,
+  ): Promise<string> {
+    if (!this.bucket || !this.publicUrlBase) {
+      return fileUrl;
+    }
+    const base = this.publicUrlBase.replace(/\/$/, '');
+    const trimmed = fileUrl.trim();
+    if (!trimmed.startsWith(base)) {
+      return fileUrl;
+    }
+    const key = trimmed.slice(base.length).replace(/^\//, '');
+    if (!key) {
+      return fileUrl;
+    }
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      { expiresIn: expiresInSeconds },
     );
   }
 }

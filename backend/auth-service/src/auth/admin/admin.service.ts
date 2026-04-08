@@ -76,7 +76,25 @@ export class AdminService {
     }
     target.isActive = false;
     await target.save();
+    await this.syncDoctorActivationIfNeeded(targetId, target.role, false);
     return { message: 'Account deactivated' };
+  }
+
+  async activateUser(actorSub: string, targetId: string): Promise<{ message: string }> {
+    if (actorSub === targetId) {
+      throw new ForbiddenException('You cannot activate your own account from this endpoint');
+    }
+    const target = await this.userModel.findById(targetId).exec();
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
+    if (target.role === Role.ADMIN) {
+      throw new ForbiddenException('Cannot change admin accounts from this endpoint');
+    }
+    target.isActive = true;
+    await target.save();
+    await this.syncDoctorActivationIfNeeded(targetId, target.role, true);
+    return { message: 'Account activated' };
   }
 
   async getStats(authorization: string | undefined): Promise<{
@@ -193,6 +211,39 @@ export class AdminService {
       throw new BadRequestException(
         typeof msg === 'string' ? msg : 'Doctor profile could not be created',
       );
+    }
+  }
+
+  private async syncDoctorActivationIfNeeded(
+    userId: string,
+    role: Role,
+    isActive: boolean,
+  ): Promise<void> {
+    if (role !== Role.DOCTOR) {
+      return;
+    }
+    const key = process.env.INTERNAL_SERVICE_KEY?.trim();
+    if (!key) {
+      return;
+    }
+    const base = process.env.DOCTOR_SERVICE_URL ?? 'http://localhost:3000';
+    const url = `${base.replace(/\/$/, '')}/internal/doctors/set-active`;
+    try {
+      await firstValueFrom(
+        this.http.post(
+          url,
+          { userId, isActive },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Service-Key': key,
+            },
+            timeout: 12_000,
+          },
+        ),
+      );
+    } catch {
+      // Do not fail admin action if doctor-service is temporarily unavailable.
     }
   }
 }

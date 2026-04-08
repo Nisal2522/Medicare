@@ -14,6 +14,11 @@ export declare class AdminController {
     }, id: string): Promise<{
         message: string;
     }>;
+    activate(req: Request & {
+        user: JwtReqUser;
+    }, id: string): Promise<{
+        message: string;
+    }>;
     verifyDoctor(authorization: string | undefined, id: string): Promise<unknown>;
     stats(authorization: string | undefined): Promise<{
         totalPatients: number;

@@ -35,6 +35,14 @@ export class AdminController {
     return this.adminService.deactivateUser(req.user.sub, id);
   }
 
+  @Patch('users/:id/activate')
+  activate(
+    @Req() req: Request & { user: JwtReqUser },
+    @Param('id') id: string,
+  ) {
+    return this.adminService.activateUser(req.user.sub, id);
+  }
+
   @Patch('verify-doctor/:id')
   verifyDoctor(
     @Headers('authorization') authorization: string | undefined,

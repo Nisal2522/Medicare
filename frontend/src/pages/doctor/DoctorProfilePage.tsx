@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   fetchDoctorById,
+  fetchDoctorMe,
   patchDoctorProfile,
   uploadDoctorProfilePhoto,
 } from '../../api/doctorApi'
@@ -62,13 +63,18 @@ export default function DoctorProfilePage() {
   ]
 
   const load = useCallback(async () => {
-    if (!user?.id) {
+    if (!user?.id || !token) {
       setLoading(false)
       return
     }
     setLoading(true)
     try {
-      const doc = await fetchDoctorById(user.id)
+      let doc
+      try {
+        doc = await fetchDoctorMe(token)
+      } catch {
+        doc = await fetchDoctorById(user.id)
+      }
       setName(doc.name)
       setSpecialty(doc.specialty)
       setExperience(doc.experience)
@@ -82,7 +88,7 @@ export default function DoctorProfilePage() {
     } finally {
       setLoading(false)
     }
-  }, [user?.id])
+  }, [token, user?.id])
 
   useEffect(() => {
     void load()
@@ -246,6 +252,7 @@ export default function DoctorProfilePage() {
                     <img
                       src={avatarPreview}
                       alt=""
+                      onError={() => setAvatarPreview(null)}
                       className="absolute inset-0 h-full w-full object-cover"
                     />
                   ) : (

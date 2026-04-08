@@ -40,6 +40,7 @@ let DoctorsService = class DoctorsService {
             await this.doctorModel.deleteMany({});
         }
         await this.doctorModel.updateMany({ isVerified: { $exists: false } }, { $set: { isVerified: true } });
+        await this.doctorModel.updateMany({ isActive: { $exists: false } }, { $set: { isActive: true } });
         const defaultProfilePicture = 'https://images.unsplash.com/photo-1527613426441-4da17449b3d0?auto=format&fit=crop&w=400&q=80';
         await this.doctorModel.updateMany({
             $or: [
@@ -167,19 +168,20 @@ let DoctorsService = class DoctorsService {
             day: dayCanonical ?? undefined,
             location: query.location,
         });
-        return rows.map((doc) => ({
+        const mapped = await Promise.all(rows.map(async (doc) => ({
             id: String(doc._id),
             name: doc.name,
             specialty: doc.specialty,
             experience: doc.experience,
             qualification: doc.qualification ?? '',
             consultationFee: doc.consultationFee ?? 0,
-            profilePicture: doc.profilePicture ?? '',
+            profilePicture: await this.resolvePublicReadUrl(doc.profilePicture ?? ''),
             availability: (doc.availability ?? []).map((s) => (0, timezone_util_1.withColomboZone)(s)),
             timeZone: timezone_util_1.COLOMBO_TZ,
             ...(doc.hospital ? { hospital: doc.hospital } : {}),
             ...(doc.location ? { location: doc.location } : {}),
-        }));
+        })));
+        return mapped;
     }
     async updateAvailability(jwtSub, role, dto) {
         if (role !== 'DOCTOR') {
@@ -234,13 +236,20 @@ let DoctorsService = class DoctorsService {
             experience: doc.experience,
             qualification: doc.qualification ?? '',
             consultationFee: doc.consultationFee ?? 0,
-            profilePicture: doc.profilePicture ?? '',
+            profilePicture: await this.resolvePublicReadUrl(doc.profilePicture ?? ''),
             availability: (doc.availability ?? []).map((s) => (0, timezone_util_1.withColomboZone)(s)),
             timeZone: timezone_util_1.COLOMBO_TZ,
             isVerified: doc.isVerified === true,
             ...(doc.hospital ? { hospital: doc.hospital } : {}),
             ...(doc.location ? { location: doc.location } : {}),
         };
+    }
+    async setActiveByInternal(id, active) {
+        const matched = await this.doctorRepository.setActive(id, active);
+        if (!matched) {
+            throw new common_1.NotFoundException('Doctor profile not found');
+        }
+        return { id, isActive: active };
     }
     async updateProfile(jwtSub, role, dto) {
         if (role !== 'DOCTOR') {
@@ -296,10 +305,27 @@ let DoctorsService = class DoctorsService {
             : await this.uploadDoctorAvatarToLocal(file);
         await this.doctorRepository.updateProfile(jwtSub, { profilePicture });
         const doctor = await this.findById(jwtSub);
-        return { profilePicture, doctor };
+        const readable = await this.resolvePublicReadUrl(profilePicture);
+        return { profilePicture: readable, doctor };
     }
     async uploadDoctorAvatarToS3(file) {
         return this.s3Service.uploadFile(file, 'doctor-avatars');
+    }
+    async resolvePublicReadUrl(fileUrl) {
+        const url = fileUrl.trim();
+        if (!url) {
+            return '';
+        }
+        const hasBucket = (process.env.AWS_S3_BUCKET_NAME ?? '').trim().length > 0;
+        if (!hasBucket) {
+            return url;
+        }
+        try {
+            return await this.s3Service.createSignedReadUrl(url);
+        }
+        catch {
+            return url;
+        }
     }
     async uploadDoctorAvatarToLocal(file) {
         const ext = (0, node_path_1.extname)(file.originalname || '').slice(0, 16) || '.jpg';
@@ -359,6 +385,7 @@ let DoctorsService = class DoctorsService {
             location: '',
             availability: [],
             isVerified: false,
+            isActive: true,
         });
         return { message: 'Doctor profile created', id: userId };
     }

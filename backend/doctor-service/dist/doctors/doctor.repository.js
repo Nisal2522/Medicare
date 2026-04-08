@@ -84,7 +84,8 @@ let DoctorRepository = class DoctorRepository {
                 ],
             });
         }
-        const query = parts.length === 0 ? {} : parts.length === 1 ? parts[0] : { $and: parts };
+        parts.push({ isActive: { $ne: false } });
+        const query = parts.length === 1 ? parts[0] : { $and: parts };
         const rows = await this.doctorModel
             .find(query)
             .select('_id name specialty experience qualification consultationFee profilePicture availability location hospital')
@@ -114,6 +115,15 @@ let DoctorRepository = class DoctorRepository {
         }
         const res = await this.doctorModel
             .updateOne({ _id: new mongoose_2.Types.ObjectId(id) }, { $set: { isVerified: verified } })
+            .exec();
+        return res.matchedCount > 0;
+    }
+    async setActive(id, active) {
+        if (!mongoose_2.Types.ObjectId.isValid(id)) {
+            return false;
+        }
+        const res = await this.doctorModel
+            .updateOne({ _id: new mongoose_2.Types.ObjectId(id) }, { $set: { isActive: active } })
             .exec();
         return res.matchedCount > 0;
     }

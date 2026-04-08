@@ -29,4 +29,5 @@ export declare class DoctorRepository {
         profilePicture: string;
     }>): Promise<boolean>;
     setVerified(id: string, verified: boolean): Promise<boolean>;
+    setActive(id: string, active: boolean): Promise<boolean>;
 }

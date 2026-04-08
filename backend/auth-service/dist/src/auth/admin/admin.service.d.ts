@@ -17,6 +17,9 @@ export declare class AdminService {
     deactivateUser(actorSub: string, targetId: string): Promise<{
         message: string;
     }>;
+    activateUser(actorSub: string, targetId: string): Promise<{
+        message: string;
+    }>;
     getStats(authorization: string | undefined): Promise<{
         totalPatients: number;
         totalDoctors: number;
@@ -31,4 +34,5 @@ export declare class AdminService {
     private countSignupsSinceUtcMidnight;
     verifyDoctor(authorization: string | undefined, doctorId: string): Promise<unknown>;
     provisionDoctorProfile(userId: string, fullName: string): Promise<void>;
+    private syncDoctorActivationIfNeeded;
 }

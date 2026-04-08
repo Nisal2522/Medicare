@@ -85,8 +85,10 @@ export class DoctorRepository {
       });
     }
 
+    parts.push({ isActive: { $ne: false } });
+
     const query: Record<string, unknown> =
-      parts.length === 0 ? {} : parts.length === 1 ? parts[0]! : { $and: parts };
+      parts.length === 1 ? parts[0]! : { $and: parts };
 
     const rows = await this.doctorModel
       .find(query as never)
@@ -146,6 +148,16 @@ export class DoctorRepository {
     }
     const res = await this.doctorModel
       .updateOne({ _id: new Types.ObjectId(id) }, { $set: { isVerified: verified } })
+      .exec();
+    return res.matchedCount > 0;
+  }
+
+  async setActive(id: string, active: boolean): Promise<boolean> {
+    if (!Types.ObjectId.isValid(id)) {
+      return false;
+    }
+    const res = await this.doctorModel
+      .updateOne({ _id: new Types.ObjectId(id) }, { $set: { isActive: active } })
       .exec();
     return res.matchedCount > 0;
   }

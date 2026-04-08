@@ -83,6 +83,7 @@ export declare class Doctor {
     location: string;
     hospital: string;
     isVerified: boolean;
+    isActive: boolean;
 }
 export declare const DoctorSchema: import("mongoose").Schema<Doctor, import("mongoose").Model<Doctor, any, any, any, (import("mongoose").Document<unknown, any, Doctor, any, import("mongoose").DefaultSchemaOptions> & Doctor & {
     _id: import("mongoose").Types.ObjectId;
@@ -185,6 +186,15 @@ export declare const DoctorSchema: import("mongoose").Schema<Doctor, import("mon
         id: string;
     }> | undefined;
     isVerified?: import("mongoose").SchemaDefinitionProperty<boolean, Doctor, import("mongoose").Document<unknown, {}, Doctor, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Doctor & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & {
+        id: string;
+    }> | undefined;
+    isActive?: import("mongoose").SchemaDefinitionProperty<boolean, Doctor, import("mongoose").Document<unknown, {}, Doctor, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<Doctor & {
         _id: import("mongoose").Types.ObjectId;

@@ -30,6 +30,9 @@ let AdminController = class AdminController {
     deactivate(req, id) {
         return this.adminService.deactivateUser(req.user.sub, id);
     }
+    activate(req, id) {
+        return this.adminService.activateUser(req.user.sub, id);
+    }
     verifyDoctor(authorization, id) {
         return this.adminService.verifyDoctor(authorization, id);
     }
@@ -52,6 +55,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "deactivate", null);
+__decorate([
+    (0, common_1.Patch)('users/:id/activate'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "activate", null);
 __decorate([
     (0, common_1.Patch)('verify-doctor/:id'),
     __param(0, (0, common_1.Headers)('authorization')),

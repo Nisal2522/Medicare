@@ -64,6 +64,10 @@ export class DoctorsService implements OnModuleInit {
       { isVerified: { $exists: false } },
       { $set: { isVerified: true } },
     );
+    await this.doctorModel.updateMany(
+      { isActive: { $exists: false } },
+      { $set: { isActive: true } },
+    );
 
     const defaultProfilePicture =
       'https://images.unsplash.com/photo-1527613426441-4da17449b3d0?auto=format&fit=crop&w=400&q=80';
@@ -208,19 +212,22 @@ export class DoctorsService implements OnModuleInit {
       location: query.location,
     });
 
-    return rows.map((doc) => ({
-      id: String((doc as unknown as { _id: Types.ObjectId })._id),
-      name: doc.name,
-      specialty: doc.specialty,
-      experience: doc.experience,
-      qualification: doc.qualification ?? '',
-      consultationFee: doc.consultationFee ?? 0,
-      profilePicture: doc.profilePicture ?? '',
-      availability: (doc.availability ?? []).map((s) => withColomboZone(s)),
-      timeZone: COLOMBO_TZ,
-      ...(doc.hospital ? { hospital: doc.hospital } : {}),
-      ...(doc.location ? { location: doc.location } : {}),
-    }));
+    const mapped = await Promise.all(
+      rows.map(async (doc) => ({
+        id: String((doc as unknown as { _id: Types.ObjectId })._id),
+        name: doc.name,
+        specialty: doc.specialty,
+        experience: doc.experience,
+        qualification: doc.qualification ?? '',
+        consultationFee: doc.consultationFee ?? 0,
+        profilePicture: await this.resolvePublicReadUrl(doc.profilePicture ?? ''),
+        availability: (doc.availability ?? []).map((s) => withColomboZone(s)),
+        timeZone: COLOMBO_TZ as typeof COLOMBO_TZ,
+        ...(doc.hospital ? { hospital: doc.hospital } : {}),
+        ...(doc.location ? { location: doc.location } : {}),
+      })),
+    );
+    return mapped;
   }
 
   async updateAvailability(
@@ -292,13 +299,21 @@ export class DoctorsService implements OnModuleInit {
       experience: doc.experience,
       qualification: doc.qualification ?? '',
       consultationFee: doc.consultationFee ?? 0,
-      profilePicture: doc.profilePicture ?? '',
+      profilePicture: await this.resolvePublicReadUrl(doc.profilePicture ?? ''),
       availability: (doc.availability ?? []).map((s) => withColomboZone(s)),
       timeZone: COLOMBO_TZ,
       isVerified: doc.isVerified === true,
       ...(doc.hospital ? { hospital: doc.hospital } : {}),
       ...(doc.location ? { location: doc.location } : {}),
     };
+  }
+
+  async setActiveByInternal(id: string, active: boolean): Promise<{ id: string; isActive: boolean }> {
+    const matched = await this.doctorRepository.setActive(id, active);
+    if (!matched) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+    return { id, isActive: active };
   }
 
   async updateProfile(
@@ -376,11 +391,28 @@ export class DoctorsService implements OnModuleInit {
 
     await this.doctorRepository.updateProfile(jwtSub, { profilePicture });
     const doctor = await this.findById(jwtSub);
-    return { profilePicture, doctor };
+    const readable = await this.resolvePublicReadUrl(profilePicture);
+    return { profilePicture: readable, doctor };
   }
 
   private async uploadDoctorAvatarToS3(file: Express.Multer.File): Promise<string> {
     return this.s3Service.uploadFile(file, 'doctor-avatars');
+  }
+
+  private async resolvePublicReadUrl(fileUrl: string): Promise<string> {
+    const url = fileUrl.trim();
+    if (!url) {
+      return '';
+    }
+    const hasBucket = (process.env.AWS_S3_BUCKET_NAME ?? '').trim().length > 0;
+    if (!hasBucket) {
+      return url;
+    }
+    try {
+      return await this.s3Service.createSignedReadUrl(url);
+    } catch {
+      return url;
+    }
   }
 
   private async uploadDoctorAvatarToLocal(
@@ -461,6 +493,7 @@ export class DoctorsService implements OnModuleInit {
       location: '',
       availability: [],
       isVerified: false,
+      isActive: true,
     });
     return { message: 'Doctor profile created', id: userId };
   }

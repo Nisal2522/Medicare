@@ -55,6 +55,9 @@ export class Doctor {
   /** False until an admin verifies; only verified doctors appear in public search. */
   @Prop({ default: false })
   isVerified!: boolean;
+
+  @Prop({ default: true })
+  isActive!: boolean;
 }
 
 export const DoctorSchema = SchemaFactory.createForClass(Doctor);

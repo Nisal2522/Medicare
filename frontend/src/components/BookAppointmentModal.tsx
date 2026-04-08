@@ -5,7 +5,7 @@ import { bookAppointment } from '../api/appointmentApi'
 import type { AvailabilitySlotDto } from '../api/doctorApi'
 import { useAuth } from '../context/AuthContext'
 import {
-  nextCalendarDateForWeekday,
+  formatColomboYmd,
   weekdayFromYmdColombo,
 } from '../lib/colomboDate'
 
@@ -46,6 +46,12 @@ export function BookAppointmentModal({
   const [submitting, setSubmitting] = useState(false)
 
   const openSlots = slots.filter((s) => s.isAvailable)
+  const todayColombo = formatColomboYmd(new Date())
+  const effectiveDate = appointmentDate || todayColombo
+  const selectedWeekday = weekdayFromYmdColombo(effectiveDate)
+  const dayMatchedSlots = selectedWeekday
+    ? openSlots.filter((s) => s.day === selectedWeekday)
+    : []
   const selectedSlot = openSlots.find(
     (s) => `${s.day}|${s.startTime}|${s.endTime}` === selectedSlotKey,
   )
@@ -62,14 +68,34 @@ export function BookAppointmentModal({
       window.localStorage.getItem('patientEmail') ??
       ''
     setPatientEmail(email)
-    const fallback = openSlots[0] ?? null
-    const boot = initialSlot && initialSlot.isAvailable ? initialSlot : fallback
+    setAppointmentDate(todayColombo)
+    const fallback =
+      dayMatchedSlots[0] ??
+      (initialSlot && initialSlot.isAvailable ? initialSlot : null) ??
+      openSlots[0] ??
+      null
+    const boot =
+      initialSlot &&
+      initialSlot.isAvailable &&
+      initialSlot.day === selectedWeekday
+        ? initialSlot
+        : fallback
     if (boot) {
       const key = `${boot.day}|${boot.startTime}|${boot.endTime}`
       setSelectedSlotKey(key)
-      setAppointmentDate(nextCalendarDateForWeekday(boot.day))
     }
-  }, [open, initialSlot, openSlots, user])
+  }, [dayMatchedSlots, initialSlot, open, openSlots, selectedWeekday, todayColombo, user])
+
+  useEffect(() => {
+    if (!open || dayMatchedSlots.length === 0) return
+    const exists = dayMatchedSlots.some(
+      (s) => `${s.day}|${s.startTime}|${s.endTime}` === selectedSlotKey,
+    )
+    if (!exists) {
+      const first = dayMatchedSlots[0]
+      setSelectedSlotKey(`${first.day}|${first.startTime}|${first.endTime}`)
+    }
+  }, [dayMatchedSlots, open, selectedSlotKey])
 
   if (!open || openSlots.length === 0) return null
 
@@ -216,18 +242,11 @@ export function BookAppointmentModal({
               id="appt-slot"
               value={selectedSlotKey}
               onChange={(e) => {
-                const nextKey = e.target.value
-                setSelectedSlotKey(nextKey)
-                const next = openSlots.find(
-                  (s) => `${s.day}|${s.startTime}|${s.endTime}` === nextKey,
-                )
-                if (next) {
-                  setAppointmentDate(nextCalendarDateForWeekday(next.day))
-                }
+                setSelectedSlotKey(e.target.value)
               }}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-400/30"
             >
-              {openSlots.map((s) => {
+              {dayMatchedSlots.map((s) => {
                 const key = `${s.day}|${s.startTime}|${s.endTime}`
                 return (
                   <option key={key} value={key}>
@@ -236,6 +255,11 @@ export function BookAppointmentModal({
                 )
               })}
             </select>
+            {dayMatchedSlots.length === 0 ? (
+              <p className="mt-1 text-xs text-amber-700">
+                No slots available for this date. Pick another date.
+              </p>
+            ) : null}
           </div>
           <div>
             <label

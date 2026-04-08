@@ -8,4 +8,5 @@ export declare class S3Service {
     constructor(config: ConfigService);
     uploadFile(file: Express.Multer.File, keyPrefix?: string): Promise<string>;
     deleteFileByPublicUrl(fileUrl: string): Promise<void>;
+    createSignedReadUrl(fileUrl: string, expiresInSeconds?: number): Promise<string>;
 }
