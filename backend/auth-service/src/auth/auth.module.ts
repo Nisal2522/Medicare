@@ -1,5 +1,6 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
+import { ClientsModule, Transport } from '@nestjs/microservices';
 import { JwtModule } from '@nestjs/jwt';
 import { MongooseModule } from '@nestjs/mongoose';
 import { PassportModule } from '@nestjs/passport';
@@ -22,6 +23,17 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   imports: [
     HttpModule.register({ timeout: 15_000, maxRedirects: 3 }),
     PassportModule.register({ defaultStrategy: 'jwt' }),
+    ClientsModule.register([
+      {
+        name: 'NOTIFICATIONS_CLIENT',
+        transport: Transport.RMQ,
+        options: {
+          urls: [process.env.RABBITMQ_URL ?? 'amqp://localhost:5672'],
+          queue: 'notifications_queue',
+          queueOptions: { durable: true },
+        },
+      },
+    ]),
     JwtModule.register({
       secret: process.env.JWT_SECRET ?? 'change-me-secret',
       signOptions: { expiresIn: '1d' },

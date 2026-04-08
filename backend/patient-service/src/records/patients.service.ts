@@ -21,6 +21,7 @@ export type PatientUploadMeta = {
 };
 
 const AVATAR_SUBDIR = 'profile-avatars';
+const DEMO_FILE_URL_PREFIX = 'https://example.com/reports/demo-';
 
 @Injectable()
 export class PatientsService {
@@ -112,22 +113,15 @@ export class PatientsService {
 
   async getRecordsForPatient(patientId: string) {
     const oid = new Types.ObjectId(patientId);
-    let rows = await this.recordModel
+    const rows = await this.recordModel
       .find({ patientId: oid })
       .sort({ createdAt: -1 })
       .lean()
       .exec();
 
-    if (rows.length === 0) {
-      await this.seedDemoRecords(oid);
-      rows = await this.recordModel
-        .find({ patientId: oid })
-        .sort({ createdAt: -1 })
-        .lean()
-        .exec();
-    }
-
-    return rows.map((r) => this.mapRow(r));
+    return rows
+      .filter((r) => !this.isDemoRecordUrl(r.fileUrl))
+      .map((r) => this.mapRow(r));
   }
 
   async getPrescriptionsForPatient(patientId: string) {
@@ -135,22 +129,15 @@ export class PatientsService {
       throw new BadRequestException('Invalid patient id');
     }
     const oid = new Types.ObjectId(patientId);
-    let rows = await this.recordModel
+    const rows = await this.recordModel
       .find({ patientId: oid, type: MedicalRecordType.PRESCRIPTION })
       .sort({ createdAt: -1 })
       .lean()
       .exec();
 
-    if (rows.length === 0) {
-      await this.seedDemoRecords(oid);
-      rows = await this.recordModel
-        .find({ patientId: oid, type: MedicalRecordType.PRESCRIPTION })
-        .sort({ createdAt: -1 })
-        .lean()
-        .exec();
-    }
-
-    return rows.map((r) => this.mapRow(r));
+    return rows
+      .filter((r) => !this.isDemoRecordUrl(r.fileUrl))
+      .map((r) => this.mapRow(r));
   }
 
   async getPaymentsForPatient(patientId: string) {
@@ -158,20 +145,11 @@ export class PatientsService {
       throw new BadRequestException('Invalid patient id');
     }
     const oid = new Types.ObjectId(patientId);
-    let rows = await this.paymentModel
+    const rows = await this.paymentModel
       .find({ patientId: oid })
       .sort({ createdAt: -1 })
       .lean()
       .exec();
-
-    if (rows.length === 0) {
-      await this.seedDemoPayments(oid);
-      rows = await this.paymentModel
-        .find({ patientId: oid })
-        .sort({ createdAt: -1 })
-        .lean()
-        .exec();
-    }
 
     return rows.map((p) => this.mapPayment(p));
   }
@@ -212,73 +190,6 @@ export class PatientsService {
     const readableAvatarUrl =
       await this.medicalFileStorage.resolvePublicReadUrl(avatarUrl);
     return { avatarUrl: readableAvatarUrl ?? avatarUrl };
-  }
-
-  private async seedDemoPayments(patientId: Types.ObjectId) {
-    await this.paymentModel.insertMany([
-      {
-        patientId,
-        amountCents: 350000,
-        currency: 'LKR',
-        description: 'Video consultation — Dr. Saman Perera',
-        status: PaymentStatus.PAID,
-        reference: 'INV-2026-0142',
-        appointmentId: null,
-      },
-      {
-        patientId,
-        amountCents: 125000,
-        currency: 'LKR',
-        description: 'Follow-up appointment booking fee',
-        status: PaymentStatus.PAID,
-        reference: 'INV-2026-0098',
-        appointmentId: null,
-      },
-      {
-        patientId,
-        amountCents: 450000,
-        currency: 'LKR',
-        description: 'Specialist review — Cardiology',
-        status: PaymentStatus.PENDING,
-        reference: 'INV-2026-0201',
-        appointmentId: null,
-      },
-    ]);
-  }
-
-  private async seedDemoRecords(patientId: Types.ObjectId) {
-    await this.recordModel.insertMany([
-      {
-        patientId,
-        type: MedicalRecordType.PRESCRIPTION,
-        title: 'Amoxicillin 500mg — 7 day course',
-        doctorName: 'Dr. Saman Perera',
-        specialty: 'General Medicine',
-        reportCategory: 'prescription',
-        fileName: 'prescription-2026-03.pdf',
-        fileUrl: 'https://example.com/reports/demo-prescription.pdf',
-      },
-      {
-        patientId,
-        type: MedicalRecordType.PRESCRIPTION,
-        title: 'Vitamin D supplement — follow-up',
-        doctorName: 'Dr. Nimali Fernando',
-        specialty: 'Cardiology',
-        reportCategory: 'prescription',
-        fileName: 'rx-cardio-2026-02.pdf',
-        fileUrl: 'https://example.com/reports/demo-prescription-2.pdf',
-      },
-      {
-        patientId,
-        type: MedicalRecordType.REPORT,
-        title: 'Lipid panel & fasting glucose',
-        doctorName: 'Dr. Nimali Fernando',
-        specialty: 'Cardiology',
-        reportCategory: 'blood',
-        fileName: 'lab-report-2026-01.pdf',
-        fileUrl: 'https://example.com/reports/demo-lab.pdf',
-      },
-    ]);
   }
 
   private mapRow(r: {
@@ -329,5 +240,10 @@ export class PatientsService {
       appointmentId: p.appointmentId ?? null,
       createdAt: p.createdAt,
     };
+  }
+
+  private isDemoRecordUrl(fileUrl: string | undefined): boolean {
+    const v = fileUrl?.trim() ?? '';
+    return v.startsWith(DEMO_FILE_URL_PREFIX);
   }
 }

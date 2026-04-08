@@ -34,6 +34,7 @@ import toast from 'react-hot-toast'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   activateAdminUser,
+  deleteAdminUser,
   deactivateAdminUser,
   fetchAdminDoctors,
   fetchAdminStats,
@@ -122,7 +123,7 @@ export default function AdminPanelPage() {
   const [userQuery, setUserQuery] = useState('')
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<{
-    kind: 'activate' | 'deactivate'
+    kind: 'activate' | 'deactivate' | 'delete'
     target: AdminUserRow
   } | null>(null)
 
@@ -301,12 +302,34 @@ export default function AdminPanelPage() {
     })
   }
 
+  async function onDelete(target: AdminUserRow) {
+    if (!token) return
+    setPendingId(target.id)
+    try {
+      await deleteAdminUser(token, target.id)
+      toast.success('User deleted')
+      await load()
+    } catch (e) {
+      toast.error(
+        isAxiosError(e)
+          ? String((e.response?.data as { message?: string })?.message ?? 'Delete failed')
+          : 'Delete failed',
+      )
+    } finally {
+      setPendingId(null)
+    }
+  }
+
   async function onConfirmToggle() {
     if (!confirmAction) return
     const { kind, target } = confirmAction
     setConfirmAction(null)
     if (kind === 'deactivate') {
       await onDeactivate(target)
+      return
+    }
+    if (kind === 'delete') {
+      await onDelete(target)
       return
     }
     await onActivate(target)
@@ -324,10 +347,18 @@ export default function AdminPanelPage() {
           />
           <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
             <h3 className="text-base font-semibold text-slate-900">
-              {confirmAction.kind === 'deactivate' ? 'Deactivate user' : 'Activate user'}
+              {confirmAction.kind === 'delete'
+                ? 'Delete user'
+                : confirmAction.kind === 'deactivate'
+                  ? 'Deactivate user'
+                  : 'Activate user'}
             </h3>
             <p className="mt-2 text-sm text-slate-600">
-              {confirmAction.kind === 'deactivate' ? 'Deactivate' : 'Activate'}{' '}
+              {confirmAction.kind === 'delete'
+                ? 'Delete'
+                : confirmAction.kind === 'deactivate'
+                  ? 'Deactivate'
+                  : 'Activate'}{' '}
               <span className="font-medium text-slate-900">{confirmAction.target.fullName}</span>{' '}
               ({confirmAction.target.email})?
             </p>
@@ -343,12 +374,18 @@ export default function AdminPanelPage() {
                 type="button"
                 onClick={() => void onConfirmToggle()}
                 className={`rounded-lg px-3 py-1.5 text-sm font-semibold text-white transition ${
-                  confirmAction.kind === 'deactivate'
-                    ? 'bg-rose-600 hover:bg-rose-700'
-                    : 'bg-emerald-600 hover:bg-emerald-700'
+                  confirmAction.kind === 'delete'
+                    ? 'bg-rose-700 hover:bg-rose-800'
+                    : confirmAction.kind === 'deactivate'
+                      ? 'bg-rose-600 hover:bg-rose-700'
+                      : 'bg-emerald-600 hover:bg-emerald-700'
                 }`}
               >
-                {confirmAction.kind === 'deactivate' ? 'Deactivate' : 'Activate'}
+                {confirmAction.kind === 'delete'
+                  ? 'Delete'
+                  : confirmAction.kind === 'deactivate'
+                    ? 'Deactivate'
+                    : 'Activate'}
               </button>
             </div>
           </div>
@@ -748,24 +785,38 @@ export default function AdminPanelPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            disabled={pendingId === u.id}
-                            onClick={() => void onToggleActive(u)}
-                            className={`inline-flex min-w-[92px] items-center justify-center rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
-                              u.isActive
-                                ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
-                                : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                            }`}
-                          >
-                            {pendingId === u.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                            ) : u.isActive ? (
-                              'Deactivate'
-                            ) : (
-                              'Activate'
-                            )}
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              type="button"
+                              disabled={pendingId === u.id}
+                              onClick={() => void onToggleActive(u)}
+                              className={`inline-flex min-w-[92px] items-center justify-center rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                                u.isActive
+                                  ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                                  : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                              }`}
+                            >
+                              {pendingId === u.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                              ) : u.isActive ? (
+                                'Deactivate'
+                              ) : (
+                                'Activate'
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={pendingId === u.id}
+                              onClick={() => setConfirmAction({ kind: 'delete', target: u })}
+                              className="inline-flex min-w-[72px] items-center justify-center rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
+                            >
+                              {pendingId === u.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                              ) : (
+                                'Delete'
+                              )}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

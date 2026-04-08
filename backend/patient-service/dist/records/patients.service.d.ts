@@ -74,9 +74,8 @@ export declare class PatientsService {
     uploadPatientAvatar(patientId: string, file: Express.Multer.File): Promise<{
         avatarUrl: string;
     }>;
-    private seedDemoPayments;
-    private seedDemoRecords;
     private mapRow;
     private mapPayment;
+    private isDemoRecordUrl;
 }
 export {};

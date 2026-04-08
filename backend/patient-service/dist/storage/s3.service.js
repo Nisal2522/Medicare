@@ -44,6 +44,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.S3Service = void 0;
 const client_s3_1 = require("@aws-sdk/client-s3");
+const s3_request_presigner_1 = require("@aws-sdk/s3-request-presigner");
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const node_crypto_1 = require("node:crypto");
@@ -92,16 +93,30 @@ let S3Service = class S3Service {
         if (!this.bucket || !this.publicUrlBase) {
             return;
         }
-        const base = this.publicUrlBase.replace(/\/$/, '');
-        const trimmed = fileUrl.trim();
-        if (!trimmed.startsWith(base)) {
-            return;
-        }
-        const key = trimmed.slice(base.length).replace(/^\//, '');
+        const key = this.extractKeyFromPublicUrl(fileUrl);
         if (!key) {
             return;
         }
         await this.client.send(new client_s3_1.DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    }
+    async createSignedReadUrl(fileUrl, expiresInSeconds = 1800) {
+        const key = this.extractKeyFromPublicUrl(fileUrl);
+        if (!key || !this.bucket) {
+            return fileUrl;
+        }
+        return (0, s3_request_presigner_1.getSignedUrl)(this.client, new client_s3_1.GetObjectCommand({ Bucket: this.bucket, Key: key }), { expiresIn: expiresInSeconds });
+    }
+    extractKeyFromPublicUrl(fileUrl) {
+        if (!this.bucket || !this.publicUrlBase) {
+            return null;
+        }
+        const base = this.publicUrlBase.replace(/\/$/, '');
+        const trimmed = fileUrl.trim();
+        if (!trimmed.startsWith(base)) {
+            return null;
+        }
+        const key = trimmed.slice(base.length).replace(/^\//, '');
+        return key || null;
     }
 };
 exports.S3Service = S3Service;

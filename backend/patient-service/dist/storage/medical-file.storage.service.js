@@ -28,9 +28,49 @@ let MedicalFileStorageService = MedicalFileStorageService_1 = class MedicalFileS
     async saveUploadedFile(file, subdir = 'medical-reports') {
         const bucket = this.config.get('AWS_S3_BUCKET_NAME')?.trim();
         if (bucket) {
-            return this.s3Service.uploadFile(file, subdir);
+            try {
+                return await this.s3Service.uploadFile(file, subdir);
+            }
+            catch (err) {
+                if (this.isS3UploadFallbackError(err)) {
+                    this.logger.warn(`S3 upload failed, falling back to local storage (${err instanceof Error ? err.message : String(err)})`);
+                    return this.saveToLocalDisk(file, subdir);
+                }
+                throw err;
+            }
         }
         return this.saveToLocalDisk(file, subdir);
+    }
+    async resolvePublicReadUrl(fileUrl) {
+        const url = fileUrl?.trim();
+        if (!url) {
+            return null;
+        }
+        const bucket = this.config.get('AWS_S3_BUCKET_NAME')?.trim();
+        if (!bucket) {
+            return url;
+        }
+        try {
+            return await this.s3Service.createSignedReadUrl(url);
+        }
+        catch (err) {
+            this.logger.warn(`S3 sign URL failed, using stored URL (${err instanceof Error ? err.message : String(err)})`);
+            return url;
+        }
+    }
+    isS3UploadFallbackError(err) {
+        if (!(err instanceof Error)) {
+            return false;
+        }
+        const message = `${err.name} ${err.message}`.toLowerCase();
+        return [
+            'accessdenied',
+            'invalidaccesskeyid',
+            'signaturedoesnotmatch',
+            'nosuchbucket',
+            'permanentredirect',
+            'all access to this object has been disabled',
+        ].some((token) => message.includes(token));
     }
     async saveToLocalDisk(file, relDir) {
         const ext = this.safeExt(file.originalname);

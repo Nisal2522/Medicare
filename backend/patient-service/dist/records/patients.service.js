@@ -22,6 +22,7 @@ const patient_payment_schema_1 = require("./patient-payment.schema");
 const patient_profile_schema_1 = require("./patient-profile.schema");
 const UPLOAD_CATEGORIES = ['prescription', 'blood', 'imaging', 'general'];
 const AVATAR_SUBDIR = 'profile-avatars';
+const DEMO_FILE_URL_PREFIX = 'https://example.com/reports/demo-';
 let PatientsService = class PatientsService {
     recordModel;
     profileModel;
@@ -94,59 +95,39 @@ let PatientsService = class PatientsService {
     }
     async getRecordsForPatient(patientId) {
         const oid = new mongoose_2.Types.ObjectId(patientId);
-        let rows = await this.recordModel
+        const rows = await this.recordModel
             .find({ patientId: oid })
             .sort({ createdAt: -1 })
             .lean()
             .exec();
-        if (rows.length === 0) {
-            await this.seedDemoRecords(oid);
-            rows = await this.recordModel
-                .find({ patientId: oid })
-                .sort({ createdAt: -1 })
-                .lean()
-                .exec();
-        }
-        return rows.map((r) => this.mapRow(r));
+        return rows
+            .filter((r) => !this.isDemoRecordUrl(r.fileUrl))
+            .map((r) => this.mapRow(r));
     }
     async getPrescriptionsForPatient(patientId) {
         if (!mongoose_2.Types.ObjectId.isValid(patientId)) {
             throw new common_1.BadRequestException('Invalid patient id');
         }
         const oid = new mongoose_2.Types.ObjectId(patientId);
-        let rows = await this.recordModel
+        const rows = await this.recordModel
             .find({ patientId: oid, type: medical_record_schema_1.MedicalRecordType.PRESCRIPTION })
             .sort({ createdAt: -1 })
             .lean()
             .exec();
-        if (rows.length === 0) {
-            await this.seedDemoRecords(oid);
-            rows = await this.recordModel
-                .find({ patientId: oid, type: medical_record_schema_1.MedicalRecordType.PRESCRIPTION })
-                .sort({ createdAt: -1 })
-                .lean()
-                .exec();
-        }
-        return rows.map((r) => this.mapRow(r));
+        return rows
+            .filter((r) => !this.isDemoRecordUrl(r.fileUrl))
+            .map((r) => this.mapRow(r));
     }
     async getPaymentsForPatient(patientId) {
         if (!mongoose_2.Types.ObjectId.isValid(patientId)) {
             throw new common_1.BadRequestException('Invalid patient id');
         }
         const oid = new mongoose_2.Types.ObjectId(patientId);
-        let rows = await this.paymentModel
+        const rows = await this.paymentModel
             .find({ patientId: oid })
             .sort({ createdAt: -1 })
             .lean()
             .exec();
-        if (rows.length === 0) {
-            await this.seedDemoPayments(oid);
-            rows = await this.paymentModel
-                .find({ patientId: oid })
-                .sort({ createdAt: -1 })
-                .lean()
-                .exec();
-        }
         return rows.map((p) => this.mapPayment(p));
     }
     async getPatientProfile(patientId) {
@@ -155,9 +136,10 @@ let PatientsService = class PatientsService {
         }
         const oid = new mongoose_2.Types.ObjectId(patientId);
         const doc = await this.profileModel.findOne({ patientId: oid }).lean().exec();
+        const avatarUrl = await this.medicalFileStorage.resolvePublicReadUrl(doc?.avatarUrl);
         return {
             patientId,
-            avatarUrl: doc?.avatarUrl?.trim() || null,
+            avatarUrl,
         };
     }
     async uploadPatientAvatar(patientId, file) {
@@ -171,72 +153,8 @@ let PatientsService = class PatientsService {
         const avatarUrl = await this.medicalFileStorage.saveUploadedFile(file, AVATAR_SUBDIR);
         const oid = new mongoose_2.Types.ObjectId(patientId);
         await this.profileModel.findOneAndUpdate({ patientId: oid }, { $set: { patientId: oid, avatarUrl } }, { upsert: true, new: true });
-        return { avatarUrl };
-    }
-    async seedDemoPayments(patientId) {
-        await this.paymentModel.insertMany([
-            {
-                patientId,
-                amountCents: 350000,
-                currency: 'LKR',
-                description: 'Video consultation — Dr. Saman Perera',
-                status: patient_payment_schema_1.PaymentStatus.PAID,
-                reference: 'INV-2026-0142',
-                appointmentId: null,
-            },
-            {
-                patientId,
-                amountCents: 125000,
-                currency: 'LKR',
-                description: 'Follow-up appointment booking fee',
-                status: patient_payment_schema_1.PaymentStatus.PAID,
-                reference: 'INV-2026-0098',
-                appointmentId: null,
-            },
-            {
-                patientId,
-                amountCents: 450000,
-                currency: 'LKR',
-                description: 'Specialist review — Cardiology',
-                status: patient_payment_schema_1.PaymentStatus.PENDING,
-                reference: 'INV-2026-0201',
-                appointmentId: null,
-            },
-        ]);
-    }
-    async seedDemoRecords(patientId) {
-        await this.recordModel.insertMany([
-            {
-                patientId,
-                type: medical_record_schema_1.MedicalRecordType.PRESCRIPTION,
-                title: 'Amoxicillin 500mg — 7 day course',
-                doctorName: 'Dr. Saman Perera',
-                specialty: 'General Medicine',
-                reportCategory: 'prescription',
-                fileName: 'prescription-2026-03.pdf',
-                fileUrl: 'https://example.com/reports/demo-prescription.pdf',
-            },
-            {
-                patientId,
-                type: medical_record_schema_1.MedicalRecordType.PRESCRIPTION,
-                title: 'Vitamin D supplement — follow-up',
-                doctorName: 'Dr. Nimali Fernando',
-                specialty: 'Cardiology',
-                reportCategory: 'prescription',
-                fileName: 'rx-cardio-2026-02.pdf',
-                fileUrl: 'https://example.com/reports/demo-prescription-2.pdf',
-            },
-            {
-                patientId,
-                type: medical_record_schema_1.MedicalRecordType.REPORT,
-                title: 'Lipid panel & fasting glucose',
-                doctorName: 'Dr. Nimali Fernando',
-                specialty: 'Cardiology',
-                reportCategory: 'blood',
-                fileName: 'lab-report-2026-01.pdf',
-                fileUrl: 'https://example.com/reports/demo-lab.pdf',
-            },
-        ]);
+        const readableAvatarUrl = await this.medicalFileStorage.resolvePublicReadUrl(avatarUrl);
+        return { avatarUrl: readableAvatarUrl ?? avatarUrl };
     }
     mapRow(r) {
         return {
@@ -264,6 +182,10 @@ let PatientsService = class PatientsService {
             appointmentId: p.appointmentId ?? null,
             createdAt: p.createdAt,
         };
+    }
+    isDemoRecordUrl(fileUrl) {
+        const v = fileUrl?.trim() ?? '';
+        return v.startsWith(DEMO_FILE_URL_PREFIX);
     }
 };
 exports.PatientsService = PatientsService;

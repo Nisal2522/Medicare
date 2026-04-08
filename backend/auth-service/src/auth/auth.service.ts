@@ -2,11 +2,14 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Inject,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ClientProxy } from '@nestjs/microservices';
 import * as bcrypt from 'bcrypt';
+import { firstValueFrom } from 'rxjs';
 import { AdminService } from './admin/admin.service';
 import { AuthRepository } from './auth.repository';
 import { LoginDto } from './dto/login.dto';
@@ -20,6 +23,8 @@ export class AuthService {
     private readonly authRepository: AuthRepository,
     private readonly jwtService: JwtService,
     private readonly adminService: AdminService,
+    @Inject('NOTIFICATIONS_CLIENT')
+    private readonly notificationsClient: ClientProxy,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -47,6 +52,12 @@ export class AuthService {
       }
     }
 
+    void this.emitRegistrationEmail({
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+    });
+
     return {
       message: 'User registered successfully',
       user: {
@@ -57,6 +68,24 @@ export class AuthService {
         phone: user.phone ?? '',
       },
     };
+  }
+
+  private async emitRegistrationEmail(payload: {
+    fullName: string;
+    email: string;
+    role: string;
+  }): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.notificationsClient.emit('user_registered', {
+          email: payload.email,
+          fullName: payload.fullName,
+          role: payload.role,
+        }),
+      );
+    } catch {
+      // Registration should still succeed if email delivery is unavailable.
+    }
   }
 
   async getMe(userId: string) {

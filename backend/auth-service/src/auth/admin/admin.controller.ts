@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
@@ -33,6 +34,14 @@ export class AdminController {
     @Param('id') id: string,
   ) {
     return this.adminService.deactivateUser(req.user.sub, id);
+  }
+
+  @Delete('users/:id')
+  delete(
+    @Req() req: Request & { user: JwtReqUser },
+    @Param('id') id: string,
+  ) {
+    return this.adminService.deleteUser(req.user.sub, id);
   }
 
   @Patch('users/:id/activate')

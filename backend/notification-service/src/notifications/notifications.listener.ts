@@ -8,6 +8,19 @@ export class NotificationsListener {
 
   constructor(private readonly dispatcher: NotificationDispatcherService) {}
 
+  @EventPattern('user_registered')
+  async onUserRegistered(
+    @Payload()
+    data: {
+      email: string;
+      fullName: string;
+      role: string;
+    },
+  ): Promise<void> {
+    this.logger.log(`user_registered → ${data.email}`);
+    await this.dispatcher.onUserRegistered(data);
+  }
+
   @EventPattern('appointment_created')
   async onAppointmentCreated(
     @Payload()

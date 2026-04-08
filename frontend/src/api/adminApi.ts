@@ -68,6 +68,15 @@ export async function activateAdminUser(
   )
 }
 
+export async function deleteAdminUser(
+  token: string,
+  userId: string,
+): Promise<void> {
+  await api.delete(`/admin/users/${userId}`, {
+    headers: authHeaders(token),
+  })
+}
+
 export async function verifyDoctorAsAdmin(
   token: string,
   doctorId: string,
