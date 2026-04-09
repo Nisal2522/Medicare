@@ -162,13 +162,14 @@ services:
       context: ./backend/ai-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      # Loads GROQ_* from the same file used for local `nest start`.
+      - ./backend/ai-service/.env
     ports:
       - '3006:3006'
     environment:
       PORT: '3006'
       JWT_SECRET: ${JWT_SECRET:-change-me-secret}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
     networks:
       - healthcare
 

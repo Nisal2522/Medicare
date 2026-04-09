@@ -31,14 +31,18 @@ function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-function urgencyStyles(level: string): string {
+function urgencyPillClass(level: string): string {
   if (level === 'High') {
-    return 'bg-rose-100 text-rose-900 ring-rose-200'
+    return 'bg-rose-100 text-rose-900 ring-1 ring-rose-200/80'
   }
   if (level === 'Medium') {
-    return 'bg-amber-100 text-amber-900 ring-amber-200'
+    return 'bg-amber-100 text-amber-900 ring-1 ring-amber-200/80'
   }
-  return 'bg-emerald-100 text-emerald-900 ring-emerald-200'
+  return 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80'
+}
+
+function urgencyReadable(level: string): string {
+  return `${level} urgency`
 }
 
 function TypingDots() {
@@ -84,7 +88,7 @@ export default function AiHealthAssistantPage() {
         {
           id: uid(),
           role: 'assistant',
-          text: 'Here is a non-diagnostic triage-style suggestion:',
+          text: '',
           analysis,
         },
       ])
@@ -176,45 +180,61 @@ export default function AiHealthAssistantPage() {
                     : 'border border-slate-100 bg-slate-50 text-slate-800'
                 }`}
               >
-                <p className="whitespace-pre-wrap">{m.text}</p>
+                {m.text ? (
+                  <p className="whitespace-pre-wrap">{m.text}</p>
+                ) : null}
                 {m.role === 'assistant' && m.error ? (
                   <p className="mt-2 text-xs text-rose-700">{m.error}</p>
                 ) : null}
                 {m.role === 'assistant' && m.analysis ? (
-                  <div className="mt-3 space-y-3 rounded-xl border border-sky-200/80 bg-white p-4 text-slate-800 shadow-inner">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${urgencyStyles(m.analysis.urgencyLevel)}`}
+                  <div className="mt-1 space-y-3">
+                    <p className="text-sm leading-relaxed text-slate-800">
+                      {m.analysis.summary}
+                    </p>
+                    <div className="rounded-xl border border-sky-100 bg-white p-4 text-slate-800 shadow-sm">
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                            Preliminary condition
+                          </p>
+                          <p className="mt-1 text-base font-bold text-slate-900">
+                            {m.analysis.preliminaryCondition}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                            Recommended specialty
+                          </p>
+                          <p className="mt-1 text-sm font-medium text-slate-800">
+                            {m.analysis.recommendedSpecialty}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                            Urgency level
+                          </p>
+                          <p className="mt-1.5">
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${urgencyPillClass(m.analysis.urgencyLevel)}`}
+                            >
+                              {urgencyReadable(m.analysis.urgencyLevel)}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4 rounded-lg border border-amber-200/90 bg-[#FEF9C3] px-3 py-2.5 text-center text-xs leading-snug text-amber-950">
+                        {m.analysis.disclaimer}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          findDoctors(m.analysis!.recommendedSpecialty)
+                        }
+                        className={`mt-4 w-full rounded-xl py-2.5 text-sm font-semibold transition hover:brightness-105 ${brandButtonClass}`}
                       >
-                        Urgency: {m.analysis.urgencyLevel}
-                      </span>
+                        Find {m.analysis.recommendedSpecialty} doctors
+                      </button>
                     </div>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Possible focus (not a diagnosis)
-                      </p>
-                      <p className="mt-0.5 font-medium text-slate-900">
-                        {m.analysis.possibleCondition}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Suggested specialty
-                      </p>
-                      <p className="mt-0.5 font-medium text-sky-800">
-                        {m.analysis.recommendedSpecialty}
-                      </p>
-                    </div>
-                    <p className="text-xs text-slate-500">{m.analysis.disclaimer}</p>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        findDoctors(m.analysis!.recommendedSpecialty)
-                      }
-                      className={`w-full rounded-xl py-2.5 text-sm font-semibold transition hover:brightness-105 ${brandButtonClass}`}
-                    >
-                      Find {m.analysis.recommendedSpecialty} doctors
-                    </button>
                   </div>
                 ) : null}
               </div>

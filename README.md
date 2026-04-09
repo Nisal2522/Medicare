@@ -50,7 +50,7 @@ From the **repository root**:
 docker compose up --build
 ```
 
-Browser SPA: **http://localhost:8080**. Set secrets via root `.env` or your shell (`JWT_SECRET`, `INTERNAL_SERVICE_KEY`, optional `STRIPE_*`, `SMTP_*`, `OPENAI_API_KEY`, etc.).
+Browser SPA: **http://localhost:8080**. Set secrets via root `.env` or your shell (`JWT_SECRET`, `INTERNAL_SERVICE_KEY`, optional `STRIPE_*`, `SMTP_*`, `GROQ_API_KEY` for ai-service, etc.).
 
 ### Run locally (Nest + Vite, Mongo/Rabbit in Docker)
 

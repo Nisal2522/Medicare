@@ -20,7 +20,7 @@ exports.AiModule = AiModule;
 exports.AiModule = AiModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            axios_1.HttpModule.register({ timeout: 45_000, maxRedirects: 3 }),
+            axios_1.HttpModule.register({ timeout: 120_000, maxRedirects: 3 }),
             passport_1.PassportModule.register({ defaultStrategy: 'jwt' }),
             jwt_1.JwtModule.register({
                 secret: process.env.JWT_SECRET ?? 'change-me-secret',

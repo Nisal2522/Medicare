@@ -8,7 +8,7 @@ import { AiService } from './ai.service';
 
 @Module({
   imports: [
-    HttpModule.register({ timeout: 45_000, maxRedirects: 3 }),
+    HttpModule.register({ timeout: 120_000, maxRedirects: 3 }),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: process.env.JWT_SECRET ?? 'change-me-secret',
