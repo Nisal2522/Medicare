@@ -10,13 +10,16 @@ import {
 } from 'class-validator';
 
 export class BookAppointmentDto {
+  // TODO: Add validation
   @IsString()
   @IsNotEmpty()
   doctorId!: string;
 
+  // The email address of the patient booking the appointment.
   @IsEmail()
   patientEmail!: string;
 
+  // The name of the patient booking the appointment.
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
@@ -38,22 +41,26 @@ export class BookAppointmentDto {
   @IsNotEmpty()
   endTime!: string;
 
+  // The reason for the appointment, provided by the patient.
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   consultationFee?: number;
 
+  // The phone number of the patient booking the appointment.
   @IsOptional()
   @IsString()
   @MaxLength(32)
   patientPhone?: string;
 
+  // The phone number of the doctor for the appointment.
   @IsOptional()
   @IsString()
   @MaxLength(32)
   doctorPhone?: string;
 
+  // The email address of the doctor for the appointment.
   @IsOptional()
   @IsEmail()
   doctorEmail?: string;
