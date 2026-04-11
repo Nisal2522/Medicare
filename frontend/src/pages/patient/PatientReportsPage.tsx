@@ -17,6 +17,7 @@ import toast from 'react-hot-toast'
 import {
   deletePatientRecord,
   fetchPatientRecords,
+  resolvePatientRecordFileUrl,
   uploadPatientReport,
   type MedicalRecordRow,
 } from '../../api/patientApi'
@@ -241,7 +242,7 @@ export default function PatientReportsPage() {
     setDeletingId(r.id)
     try {
       await deletePatientRecord(user.id, r.id, token)
-      if (preview?.url === r.fileUrl) {
+      if (preview?.url === resolvePatientRecordFileUrl(r.fileUrl)) {
         setPreview(null)
       }
       toast.success('Document removed')
@@ -408,6 +409,7 @@ export default function PatientReportsPage() {
             const cat = inferCategory(r)
             const meta = CATEGORY_META[cat]
             const kind = fileKind(r.fileName)
+            const fileHref = resolvePatientRecordFileUrl(r.fileUrl)
             return (
               <li key={r.id}>
                 <article
@@ -453,7 +455,7 @@ export default function PatientReportsPage() {
                       type="button"
                       onClick={() =>
                         setPreview({
-                          url: r.fileUrl,
+                          url: fileHref,
                           title: r.title,
                           kind,
                         })
@@ -464,7 +466,7 @@ export default function PatientReportsPage() {
                       <Eye className="h-4 w-4" aria-hidden />
                     </button>
                     <a
-                      href={r.fileUrl}
+                      href={fileHref}
                       download
                       className={actionBtn}
                       aria-label={`Download ${r.title}`}
