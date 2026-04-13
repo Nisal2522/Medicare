@@ -1,7 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
-// This file defines the Mongoose schema for the Appointment collection in the MongoDB database. It includes the structure of the appointment document, as well as the various fields and their types. The schema also includes indexes to optimize queries based on doctorId, appointmentDateKey, slotKey, and slotSeat.
 export type AppointmentDocument = HydratedDocument<Appointment>;
 
 export enum AppointmentStatus {
@@ -19,7 +18,6 @@ export enum DoctorApprovalStatus {
   REJECTED = 'REJECTED',
 }
 
-// The Appointment class defines the structure of an appointment document in the MongoDB database. It includes fields for doctor and patient information, appointment details, status, and payment information. The schema is decorated with @Schema to indicate that it is a Mongoose schema, and the fields are decorated with @Prop to define their types and constraints.
 @Schema({ timestamps: true, collection: 'appointments' })
 export class Appointment {
   @Prop({ type: Types.ObjectId, required: true })
@@ -91,7 +89,6 @@ export class Appointment {
   slotSeat?: number;
 }
 
-// The AppointmentSchema is created using the SchemaFactory from @nestjs/mongoose. It defines the structure of the appointment documents in the MongoDB collection and includes indexes to optimize queries based on doctorId, appointmentDateKey, slotKey, and slotSeat.
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);
 
 AppointmentSchema.index(
