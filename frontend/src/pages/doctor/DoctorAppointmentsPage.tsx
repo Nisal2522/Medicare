@@ -48,11 +48,17 @@ export default function DoctorAppointmentsPage() {
       if (!token) return
       setApprovalBusyId(appointmentId)
       try {
-        await doctorSetAppointmentApproval(appointmentId, decision, token)
+        const { appointment } = await doctorSetAppointmentApproval(
+          appointmentId,
+          decision,
+          token,
+        )
+        setRows((prev) =>
+          prev.map((row) => (row.id === appointment.id ? appointment : row)),
+        )
         toast.success(
           decision === 'approve' ? 'Appointment approved.' : 'Appointment declined.',
         )
-        await load()
       } catch (e) {
         if (isAxiosError(e)) {
           const msg = (e.response?.data as { message?: string })?.message
@@ -66,7 +72,7 @@ export default function DoctorAppointmentsPage() {
         setApprovalBusyId(null)
       }
     },
-    [token, load],
+    [token],
   )
 
   return (

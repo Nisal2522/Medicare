@@ -6,6 +6,7 @@ import DoctorLayout from './layouts/DoctorLayout'
 import DoctorAppointmentsPage from './pages/doctor/DoctorAppointmentsPage'
 import DoctorAvailabilityPage from './pages/doctor/DoctorAvailabilityPage'
 import DoctorDashboardHomePage from './pages/doctor/DoctorDashboardHomePage'
+import DoctorPatientReportsPage from './pages/doctor/DoctorPatientReportsPage'
 import DoctorPrescriptionsPage from './pages/doctor/DoctorPrescriptionsPage'
 import DoctorProfilePage from './pages/doctor/DoctorProfilePage'
 import FindDoctorPage from './pages/FindDoctorPage'
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="/dashboard/doctor" element={<DoctorLayout />}>
             <Route index element={<DoctorDashboardHomePage />} />
             <Route path="appointments" element={<DoctorAppointmentsPage />} />
+            <Route path="patients/:patientId/reports" element={<DoctorPatientReportsPage />} />
             <Route path="availability" element={<DoctorAvailabilityPage />} />
             <Route path="prescriptions" element={<DoctorPrescriptionsPage />} />
             <Route path="profile" element={<DoctorProfilePage />} />

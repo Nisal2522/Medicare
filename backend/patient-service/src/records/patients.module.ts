@@ -5,6 +5,10 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from '../auth/jwt.strategy';
 import { MedicalFileStorageService } from '../storage/medical-file.storage.service';
 import { S3Service } from '../storage/s3.service';
+import {
+  AppointmentAccess,
+  AppointmentAccessSchema,
+} from './appointment-access.schema';
 import { MedicalRecord, MedicalRecordSchema } from './medical-record.schema';
 import {
   PatientPayment,
@@ -17,6 +21,7 @@ import { PatientsService } from './patients.service';
 @Module({
   imports: [
     MongooseModule.forFeature([
+      { name: AppointmentAccess.name, schema: AppointmentAccessSchema },
       { name: MedicalRecord.name, schema: MedicalRecordSchema },
       { name: PatientProfile.name, schema: PatientProfileSchema },
       { name: PatientPayment.name, schema: PatientPaymentSchema },

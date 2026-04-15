@@ -186,17 +186,19 @@ export class NotificationDispatcherService {
   }): Promise<void> {
     const a = payload.appointment;
     const summary = this.formatSlot(a);
-    const subject = `MediSmart — Appointment approved (${a.id ?? '—'})`;
+    const subject = 'Your appointment has been confirmed';
+    const doctorName = payload.doctorName ?? a.doctorName;
     const html = this.wrapHtml(
-      'Doctor approved your appointment',
+      'Appointment confirmed',
       `<p>Hi <strong>${this.esc(a.patientName)}</strong>,</p>
-      <p>Your appointment has been approved by <strong>${this.esc(payload.doctorName ?? a.doctorName)}</strong>.</p>
+      <p>We are pleased to inform you that your appointment with <strong>${this.esc(doctorName)}</strong> has been successfully approved.</p>
       <ul>
         <li><strong>Appointment ID:</strong> ${this.esc(a.id)}</li>
-        <li><strong>Doctor:</strong> ${this.esc(a.doctorName)}</li>
+        <li><strong>Doctor:</strong> ${this.esc(doctorName)}</li>
         <li><strong>Scheduled:</strong> ${this.esc(summary)}</li>
       </ul>
-      <p>You can now join consultation at the scheduled time from your dashboard.</p>`,
+      <p>Please join on time from your dashboard. If you need to reschedule or cancel, kindly update your appointment in advance.</p>
+      <p style="color:#64748b;font-size:13px">Thank you for choosing MediSmart. We look forward to supporting your care.</p>`,
     );
     await this.mail.sendHtml(payload.patientEmail, subject, html);
     await this.sms.send(

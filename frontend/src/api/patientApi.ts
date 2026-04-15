@@ -29,10 +29,14 @@ export type UploadReportMeta = {
 export async function fetchPatientRecords(
   patientId: string,
   token: string,
+  options?: { appointmentId?: string },
 ): Promise<MedicalRecordRow[]> {
   const { data } = await patientApi.get<MedicalRecordRow[]>(
     `/patients/${patientId}/records`,
     {
+      params: options?.appointmentId
+        ? { appointmentId: options.appointmentId }
+        : undefined,
       headers: { Authorization: `Bearer ${token}` },
     },
   )
@@ -54,10 +58,16 @@ export async function deletePatientRecord(
 export async function fetchPatientPrescriptions(
   patientId: string,
   token: string,
+  options?: { appointmentId?: string },
 ): Promise<MedicalRecordRow[]> {
   const { data } = await patientApi.get<MedicalRecordRow[]>(
     `/patients/${patientId}/prescriptions`,
-    { headers: { Authorization: `Bearer ${token}` } },
+    {
+      params: options?.appointmentId
+        ? { appointmentId: options.appointmentId }
+        : undefined,
+      headers: { Authorization: `Bearer ${token}` },
+    },
   )
   return data
 }

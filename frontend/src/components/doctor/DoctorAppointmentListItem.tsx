@@ -1,4 +1,4 @@
-import { Calendar, Loader2 } from 'lucide-react'
+import { Calendar, FolderOpen, Loader2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { MyAppointmentRow } from '../../api/appointmentApi'
 import { DoctorApprovalChip } from '../DoctorApprovalChip'
@@ -143,6 +143,15 @@ export function DoctorAppointmentListItem({
               Join visit
             </span>
           )
+        ) : null}
+        {approval === 'APPROVED' && a.patientId ? (
+          <Link
+            to={`/dashboard/doctor/patients/${a.patientId}/reports?appointmentId=${encodeURIComponent(a.id)}`}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-center text-xs font-semibold text-sky-800 transition hover:bg-sky-100"
+          >
+            <FolderOpen className="h-3.5 w-3.5" aria-hidden />
+            Patient reports
+          </Link>
         ) : null}
       </div>
     </article>

@@ -1,10 +1,13 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { AppointmentAccess } from './appointment-access.schema';
 import { MedicalFileStorageService } from '../storage/medical-file.storage.service';
 import { UpdatePatientProfileDto } from './dto/update-patient-profile.dto';
 import { MedicalRecord, MedicalRecordType } from './medical-record.schema';
@@ -27,6 +30,8 @@ const DEMO_FILE_URL_PREFIX = 'https://example.com/reports/demo-';
 @Injectable()
 export class PatientsService {
   constructor(
+    @InjectModel(AppointmentAccess.name)
+    private readonly appointmentAccessModel: Model<AppointmentAccess>,
     @InjectModel(MedicalRecord.name)
     private readonly recordModel: Model<MedicalRecord>,
     @InjectModel(PatientProfile.name)
@@ -34,6 +39,7 @@ export class PatientsService {
     @InjectModel(PatientPayment.name)
     private readonly paymentModel: Model<PatientPayment>,
     private readonly medicalFileStorage: MedicalFileStorageService,
+    private readonly config: ConfigService,
   ) {}
 
   async uploadPatientReport(
@@ -153,6 +159,137 @@ export class PatientsService {
       .exec();
 
     return rows.map((p) => this.mapPayment(p));
+  }
+
+  async assertDoctorCanViewPatientReports(
+    doctorId: string,
+    patientId: string,
+    appointmentId?: string,
+  ) {
+    if (!Types.ObjectId.isValid(doctorId) || !Types.ObjectId.isValid(patientId)) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    const doctorOid = new Types.ObjectId(doctorId);
+    const patientOid = new Types.ObjectId(patientId);
+
+    const approvedOrLegacyApproved = [
+      { doctorApprovalStatus: 'APPROVED' },
+      {
+        doctorApprovalStatus: { $exists: false },
+        status: { $in: ['CONFIRMED', 'COMPLETED'] },
+      },
+    ];
+
+    if (appointmentId && Types.ObjectId.isValid(appointmentId)) {
+      const byAppointment = await this.appointmentAccessModel
+        .findOne({
+          _id: new Types.ObjectId(appointmentId),
+          doctorId: doctorOid,
+          status: { $ne: 'CANCELLED' },
+          $or: approvedOrLegacyApproved,
+        })
+        .select({ _id: 1, patientId: 1 })
+        .lean()
+        .exec();
+
+      if (byAppointment) {
+        if (
+          !byAppointment.patientId ||
+          String(byAppointment.patientId) === patientId
+        ) {
+          return;
+        }
+      }
+    }
+
+    const row = await this.appointmentAccessModel
+      .findOne({
+        doctorId: doctorOid,
+        patientId: patientOid,
+        status: { $ne: 'CANCELLED' },
+        $or: approvedOrLegacyApproved,
+      })
+      .select({ _id: 1 })
+      .lean()
+      .exec();
+
+    if (!row) {
+      if (appointmentId && Types.ObjectId.isValid(appointmentId)) {
+        const allowedBySnapshot = await this.allowByAppointmentSnapshot(
+          doctorId,
+          patientId,
+          appointmentId,
+        );
+        if (allowedBySnapshot) {
+          return;
+        }
+      }
+      throw new ForbiddenException(
+        'Doctor can view records only after approving this patient appointment',
+      );
+    }
+  }
+
+  private effectiveDoctorApproval(raw?: string, status?: string): string {
+    const approval = raw?.trim();
+    if (
+      approval === 'APPROVED' ||
+      approval === 'PENDING' ||
+      approval === 'REJECTED'
+    ) {
+      return approval;
+    }
+    if (status === 'CONFIRMED' || status === 'COMPLETED') {
+      return 'APPROVED';
+    }
+    return 'PENDING';
+  }
+
+  private async allowByAppointmentSnapshot(
+    doctorId: string,
+    patientId: string,
+    appointmentId: string,
+  ): Promise<boolean> {
+    const base = this.config.get<string>('APPOINTMENT_SERVICE_URL')?.trim();
+    const key = this.config.get<string>('INTERNAL_SERVICE_KEY')?.trim();
+    if (!base || !key) {
+      return false;
+    }
+
+    const url = `${base.replace(/\/$/, '')}/internal/appointments/${encodeURIComponent(
+      appointmentId,
+    )}/telecom-snapshot`;
+    try {
+      const res = await fetch(url, {
+        headers: { 'X-Service-Key': key },
+      });
+      if (!res.ok) {
+        return false;
+      }
+      const snapshot = (await res.json()) as {
+        doctorId: string;
+        patientId?: string;
+        status?: string;
+        doctorApprovalStatus?: string;
+      };
+      if (String(snapshot.doctorId) !== doctorId) {
+        return false;
+      }
+      if (snapshot.status === 'CANCELLED') {
+        return false;
+      }
+      const approval = this.effectiveDoctorApproval(
+        snapshot.doctorApprovalStatus,
+        snapshot.status,
+      );
+      if (approval !== 'APPROVED') {
+        return false;
+      }
+      return !snapshot.patientId || String(snapshot.patientId) === patientId;
+    } catch {
+      return false;
+    }
   }
 
   async getPatientProfile(patientId: string) {

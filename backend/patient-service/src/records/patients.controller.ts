@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UploadedFile,
   UseGuards,
@@ -107,16 +108,21 @@ export class PatientsController {
 
   @Get(':id/records')
   @UseGuards(AuthGuard('jwt'))
-  getRecords(
+  async getRecords(
     @Req() req: { user: JwtPayload },
     @Param('id') patientId: string,
+    @Query('appointmentId') appointmentId?: string,
   ) {
     if (req.user.role === 'PATIENT') {
       if (req.user.sub !== patientId) {
         throw new ForbiddenException('Access denied');
       }
     } else if (req.user.role === 'DOCTOR') {
-      /* Demo: treat JWT as trusted clinician; production should verify care relationship. */
+      await this.patientsService.assertDoctorCanViewPatientReports(
+        req.user.sub,
+        patientId,
+        appointmentId,
+      );
     } else {
       throw new ForbiddenException('Access denied');
     }
@@ -141,15 +147,22 @@ export class PatientsController {
 
   @Get(':id/prescriptions')
   @UseGuards(AuthGuard('jwt'))
-  getPrescriptions(
+  async getPrescriptions(
     @Req() req: { user: JwtPayload },
     @Param('id') patientId: string,
+    @Query('appointmentId') appointmentId?: string,
   ) {
     if (req.user.role === 'PATIENT') {
       if (req.user.sub !== patientId) {
         throw new ForbiddenException('Access denied');
       }
-    } else if (req.user.role !== 'DOCTOR') {
+    } else if (req.user.role === 'DOCTOR') {
+      await this.patientsService.assertDoctorCanViewPatientReports(
+        req.user.sub,
+        patientId,
+        appointmentId,
+      );
+    } else {
       throw new ForbiddenException('Access denied');
     }
     return this.patientsService.getPrescriptionsForPatient(patientId);
