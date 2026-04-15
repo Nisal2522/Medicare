@@ -1,9 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MailService } from './mail.service';
 import { SmsService } from './sms.service';
+import { RealtimeNotificationService } from './realtime-notification.service';
 
 type AppointmentSlice = {
   id?: string;
+  doctorId?: string;
+  patientId?: string;
   doctorName?: string;
   doctorSpecialty?: string;
   patientName?: string;
@@ -22,6 +25,7 @@ export class NotificationDispatcherService {
   constructor(
     private readonly mail: MailService,
     private readonly sms: SmsService,
+    private readonly realtime: RealtimeNotificationService,
   ) {}
 
   async onUserRegistered(payload: {
@@ -42,6 +46,13 @@ export class NotificationDispatcherService {
     );
 
     await this.mail.sendHtml(payload.email, subject, html);
+    this.realtime.notifyPatientByEmail(payload.email, 'user_registered', {
+      type: 'user_registered',
+      title: 'Welcome to MediSmart',
+      message: 'Your account has been created successfully.',
+      role: payload.role,
+      ts: Date.now(),
+    });
   }
 
   async onBookingConfirmation(payload: {
@@ -68,6 +79,20 @@ export class NotificationDispatcherService {
     );
 
     await this.mail.sendHtml(payload.patientEmail, subject, patientHtml);
+    this.realtime.notifyPatientByEmail(payload.patientEmail, 'appointment_created', {
+      type: 'appointment_created',
+      title: 'Appointment booked',
+      message: `Your appointment with ${a.doctorName ?? 'doctor'} is booked.`,
+      appointment: a,
+      ts: Date.now(),
+    });
+    this.realtime.notifyDoctorById(a.doctorId, 'appointment_created', {
+      type: 'appointment_created',
+      title: 'New appointment booked',
+      message: `${a.patientName ?? 'A patient'} booked your slot.`,
+      appointment: a,
+      ts: Date.now(),
+    });
     await this.sms.send(
       payload.patientPhone,
       `MediSmart: Appointment ${a.id ?? ''} with ${a.doctorName ?? 'doctor'} on ${summary}.`,
@@ -123,6 +148,20 @@ export class NotificationDispatcherService {
     );
 
     await this.mail.sendHtml(payload.patientEmail, subject, html);
+    this.realtime.notifyPatientByEmail(payload.patientEmail, 'video_call_reminder', {
+      type: 'video_call_reminder',
+      title: 'Video reminder',
+      message: `Your consultation starts in about 10 minutes (ID ${a.id ?? '—'}).`,
+      appointment: a,
+      ts: Date.now(),
+    });
+    this.realtime.notifyDoctorById(a.doctorId, 'video_call_reminder', {
+      type: 'video_call_reminder',
+      title: 'Upcoming consultation',
+      message: `Consultation with ${a.patientName ?? 'patient'} starts in about 10 minutes.`,
+      appointment: a,
+      ts: Date.now(),
+    });
     await this.sms.send(
       payload.patientPhone,
       `MediSmart REMINDER: Video visit with ${a.doctorName ?? 'doctor'} @ ${summary} (ID ${a.id ?? ''}).`,
@@ -172,6 +211,13 @@ export class NotificationDispatcherService {
     );
 
     await this.mail.sendHtml(payload.patientEmail, subject, html);
+    this.realtime.notifyPatientByEmail(payload.patientEmail, 'prescription_ready', {
+      type: 'prescription_ready',
+      title: 'Prescription ready',
+      message: `Prescription is available for appointment ${payload.appointmentId}.`,
+      appointmentId: payload.appointmentId,
+      ts: Date.now(),
+    });
     await this.sms.send(
       payload.patientPhone,
       `MediSmart: Prescription ready for appointment ${payload.appointmentId}. ${summary.slice(0, 80)}`,
@@ -201,10 +247,42 @@ export class NotificationDispatcherService {
       <p style="color:#64748b;font-size:13px">Thank you for choosing MediSmart. We look forward to supporting your care.</p>`,
     );
     await this.mail.sendHtml(payload.patientEmail, subject, html);
+    this.realtime.notifyPatientByEmail(
+      payload.patientEmail,
+      'appointment_doctor_approved',
+      {
+        type: 'appointment_doctor_approved',
+        title: 'Appointment approved',
+        message: `Your appointment has been approved by ${doctorName ?? 'the doctor'}.`,
+        appointment: a,
+        ts: Date.now(),
+      },
+    );
     await this.sms.send(
       payload.patientPhone,
       `MediSmart: Appointment ${a.id ?? ''} approved by ${a.doctorName ?? 'doctor'}. Time: ${summary}.`,
     );
+  }
+
+  async onPaymentSuccess(payload: {
+    patientEmail?: string;
+    appointment: AppointmentSlice;
+  }): Promise<void> {
+    const a = payload.appointment;
+    this.realtime.notifyPatientByEmail(payload.patientEmail, 'payment_success', {
+      type: 'payment_success',
+      title: 'Payment completed',
+      message: `Payment completed for appointment ${a.id ?? '—'}.`,
+      appointment: a,
+      ts: Date.now(),
+    });
+    this.realtime.notifyDoctorById(a.doctorId, 'payment_success', {
+      type: 'payment_success',
+      title: 'Appointment confirmed',
+      message: `Payment is complete for appointment ${a.id ?? '—'}.`,
+      appointment: a,
+      ts: Date.now(),
+    });
   }
 
   private formatSlot(a: AppointmentSlice): string {

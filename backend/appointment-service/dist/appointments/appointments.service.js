@@ -555,7 +555,8 @@ let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
         if (!mongoose_2.Types.ObjectId.isValid(appointmentId)) {
             return;
         }
-        await this.appointmentModel.updateOne({
+        const appt = await this.appointmentModel
+            .findOneAndUpdate({
             _id: new mongoose_2.Types.ObjectId(appointmentId),
             status: appointment_schema_1.AppointmentStatus.PENDING_PAYMENT,
         }, {
@@ -563,6 +564,15 @@ let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
                 status: appointment_schema_1.AppointmentStatus.CONFIRMED,
                 paymentStatus: 'Paid',
             },
+        }, { new: true })
+            .exec();
+        if (!appt) {
+            return;
+        }
+        const row = this.mapRow(appt);
+        this.notifications.emit('appointment_payment_success', {
+            patientEmail: row.patientEmail,
+            appointment: row,
         });
     }
     async cancelByPatient(appointmentId, patientEmail, authHeader) {

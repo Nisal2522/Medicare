@@ -90,4 +90,18 @@ export class NotificationsListener {
       appointment: data.appointment,
     });
   }
+
+  @EventPattern('appointment_payment_success')
+  async onPaymentSuccess(
+    @Payload()
+    data: {
+      patientEmail?: string;
+      appointment: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    this.logger.log(
+      `appointment_payment_success → ${data.patientEmail ?? 'unknown patient'}`,
+    );
+    await this.dispatcher.onPaymentSuccess(data);
+  }
 }

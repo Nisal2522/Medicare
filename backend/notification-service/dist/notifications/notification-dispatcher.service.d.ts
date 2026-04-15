@@ -1,7 +1,10 @@
 import { MailService } from './mail.service';
 import { SmsService } from './sms.service';
+import { RealtimeNotificationService } from './realtime-notification.service';
 type AppointmentSlice = {
     id?: string;
+    doctorId?: string;
+    patientId?: string;
     doctorName?: string;
     doctorSpecialty?: string;
     patientName?: string;
@@ -15,8 +18,9 @@ type AppointmentSlice = {
 export declare class NotificationDispatcherService {
     private readonly mail;
     private readonly sms;
+    private readonly realtime;
     private readonly logger;
-    constructor(mail: MailService, sms: SmsService);
+    constructor(mail: MailService, sms: SmsService, realtime: RealtimeNotificationService);
     onUserRegistered(payload: {
         email: string;
         fullName: string;
@@ -47,6 +51,10 @@ export declare class NotificationDispatcherService {
         patientEmail: string;
         patientPhone?: string;
         doctorName?: string;
+        appointment: AppointmentSlice;
+    }): Promise<void>;
+    onPaymentSuccess(payload: {
+        patientEmail?: string;
         appointment: AppointmentSlice;
     }): Promise<void>;
     private formatSlot;

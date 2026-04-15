@@ -6,6 +6,8 @@ import { MailService } from './notifications/mail.service';
 import { NotificationQueueConsumer } from './notifications/notification-queue.consumer';
 import { SmsService } from './notifications/sms.service';
 import { SmsController } from './notifications/sms.controller';
+import { RealtimeGateway } from './notifications/realtime.gateway';
+import { RealtimeNotificationService } from './notifications/realtime-notification.service';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { SmsController } from './notifications/sms.controller';
     SmsService,
     NotificationDispatcherService,
     NotificationQueueConsumer,
+    RealtimeGateway,
+    RealtimeNotificationService,
   ],
 })
 export class AppModule {

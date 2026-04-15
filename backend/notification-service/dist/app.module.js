@@ -18,6 +18,8 @@ const mail_service_1 = require("./notifications/mail.service");
 const notification_queue_consumer_1 = require("./notifications/notification-queue.consumer");
 const sms_service_1 = require("./notifications/sms.service");
 const sms_controller_1 = require("./notifications/sms.controller");
+const realtime_gateway_1 = require("./notifications/realtime.gateway");
+const realtime_notification_service_1 = require("./notifications/realtime-notification.service");
 let AppModule = class AppModule {
     _queueConsumer;
     constructor(_queueConsumer) {
@@ -38,6 +40,8 @@ exports.AppModule = AppModule = __decorate([
             sms_service_1.SmsService,
             notification_dispatcher_service_1.NotificationDispatcherService,
             notification_queue_consumer_1.NotificationQueueConsumer,
+            realtime_gateway_1.RealtimeGateway,
+            realtime_notification_service_1.RealtimeNotificationService,
         ],
     }),
     __metadata("design:paramtypes", [notification_queue_consumer_1.NotificationQueueConsumer])

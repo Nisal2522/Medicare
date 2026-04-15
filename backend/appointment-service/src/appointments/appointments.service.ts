@@ -658,18 +658,29 @@ export class AppointmentsService implements OnModuleInit {
     if (!Types.ObjectId.isValid(appointmentId)) {
       return;
     }
-    await this.appointmentModel.updateOne(
-      {
-        _id: new Types.ObjectId(appointmentId),
-        status: AppointmentStatus.PENDING_PAYMENT,
-      },
-      {
-        $set: {
-          status: AppointmentStatus.CONFIRMED,
-          paymentStatus: 'Paid',
+    const appt = await this.appointmentModel
+      .findOneAndUpdate(
+        {
+          _id: new Types.ObjectId(appointmentId),
+          status: AppointmentStatus.PENDING_PAYMENT,
         },
-      },
-    );
+        {
+          $set: {
+            status: AppointmentStatus.CONFIRMED,
+            paymentStatus: 'Paid',
+          },
+        },
+        { new: true },
+      )
+      .exec();
+    if (!appt) {
+      return;
+    }
+    const row = this.mapRow(appt);
+    this.notifications.emit('appointment_payment_success', {
+      patientEmail: row.patientEmail,
+      appointment: row,
+    });
   }
 
   async cancelByPatient(

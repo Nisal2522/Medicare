@@ -26,10 +26,12 @@ import VideoCallPage from './pages/VideoCallPage'
 import PaymentCancelPage from './pages/PaymentCancelPage'
 import PaymentSuccessPage from './pages/PaymentSuccessPage'
 import EmbeddedPaymentPage from './pages/EmbeddedPaymentPage'
+import { RealtimeNotifications } from './components/RealtimeNotifications'
 
 export default function App() {
   return (
     <BrowserRouter>
+      <RealtimeNotifications />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/payment/embedded" element={<EmbeddedPaymentPage />} />

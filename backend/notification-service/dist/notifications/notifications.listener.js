@@ -54,6 +54,10 @@ let NotificationsListener = NotificationsListener_1 = class NotificationsListene
             appointment: data.appointment,
         });
     }
+    async onPaymentSuccess(data) {
+        this.logger.log(`appointment_payment_success → ${data.patientEmail ?? 'unknown patient'}`);
+        await this.dispatcher.onPaymentSuccess(data);
+    }
 };
 exports.NotificationsListener = NotificationsListener;
 __decorate([
@@ -91,6 +95,13 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], NotificationsListener.prototype, "onDoctorApproval", null);
+__decorate([
+    (0, microservices_1.EventPattern)('appointment_payment_success'),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], NotificationsListener.prototype, "onPaymentSuccess", null);
 exports.NotificationsListener = NotificationsListener = NotificationsListener_1 = __decorate([
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [notification_dispatcher_service_1.NotificationDispatcherService])

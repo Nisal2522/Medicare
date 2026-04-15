@@ -14,13 +14,16 @@ exports.NotificationDispatcherService = void 0;
 const common_1 = require("@nestjs/common");
 const mail_service_1 = require("./mail.service");
 const sms_service_1 = require("./sms.service");
+const realtime_notification_service_1 = require("./realtime-notification.service");
 let NotificationDispatcherService = NotificationDispatcherService_1 = class NotificationDispatcherService {
     mail;
     sms;
+    realtime;
     logger = new common_1.Logger(NotificationDispatcherService_1.name);
-    constructor(mail, sms) {
+    constructor(mail, sms, realtime) {
         this.mail = mail;
         this.sms = sms;
+        this.realtime = realtime;
     }
     async onUserRegistered(payload) {
         const subject = 'MediSmart - Welcome to your account';
@@ -32,6 +35,13 @@ let NotificationDispatcherService = NotificationDispatcherService_1 = class Noti
       </ul>
       <p>You can now sign in and continue using the platform.</p>`);
         await this.mail.sendHtml(payload.email, subject, html);
+        this.realtime.notifyPatientByEmail(payload.email, 'user_registered', {
+            type: 'user_registered',
+            title: 'Welcome to MediSmart',
+            message: 'Your account has been created successfully.',
+            role: payload.role,
+            ts: Date.now(),
+        });
     }
     async onBookingConfirmation(payload) {
         const a = payload.appointment;
@@ -46,6 +56,20 @@ let NotificationDispatcherService = NotificationDispatcherService_1 = class Noti
       </ul>
       <p style="color:#64748b;font-size:13px">This is an automated message. For emergencies, contact your clinic directly.</p>`);
         await this.mail.sendHtml(payload.patientEmail, subject, patientHtml);
+        this.realtime.notifyPatientByEmail(payload.patientEmail, 'appointment_created', {
+            type: 'appointment_created',
+            title: 'Appointment booked',
+            message: `Your appointment with ${a.doctorName ?? 'doctor'} is booked.`,
+            appointment: a,
+            ts: Date.now(),
+        });
+        this.realtime.notifyDoctorById(a.doctorId, 'appointment_created', {
+            type: 'appointment_created',
+            title: 'New appointment booked',
+            message: `${a.patientName ?? 'A patient'} booked your slot.`,
+            appointment: a,
+            ts: Date.now(),
+        });
         await this.sms.send(payload.patientPhone, `MediSmart: Appointment ${a.id ?? ''} with ${a.doctorName ?? 'doctor'} on ${summary}.`);
         if (payload.doctorEmail?.trim()) {
             const doctorHtml = this.wrapHtml('New booking', `<p>Hello <strong>${this.esc(a.doctorName)}</strong>,</p>
@@ -75,6 +99,20 @@ let NotificationDispatcherService = NotificationDispatcherService_1 = class Noti
       </ul>
       <p>Open the app and join from your dashboard when ready.</p>`);
         await this.mail.sendHtml(payload.patientEmail, subject, html);
+        this.realtime.notifyPatientByEmail(payload.patientEmail, 'video_call_reminder', {
+            type: 'video_call_reminder',
+            title: 'Video reminder',
+            message: `Your consultation starts in about 10 minutes (ID ${a.id ?? '—'}).`,
+            appointment: a,
+            ts: Date.now(),
+        });
+        this.realtime.notifyDoctorById(a.doctorId, 'video_call_reminder', {
+            type: 'video_call_reminder',
+            title: 'Upcoming consultation',
+            message: `Consultation with ${a.patientName ?? 'patient'} starts in about 10 minutes.`,
+            appointment: a,
+            ts: Date.now(),
+        });
         await this.sms.send(payload.patientPhone, `MediSmart REMINDER: Video visit with ${a.doctorName ?? 'doctor'} @ ${summary} (ID ${a.id ?? ''}).`);
         if (payload.doctorEmail?.trim()) {
             await this.mail.sendHtml(payload.doctorEmail.trim(), `MediSmart — Upcoming video visit (${a.id ?? '—'})`, this.wrapHtml('Reminder', `<p>Your consultation with <strong>${this.esc(a.patientName)}</strong> is in ~10 minutes.</p>
@@ -96,22 +134,55 @@ let NotificationDispatcherService = NotificationDispatcherService_1 = class Noti
       </ul>
       <p>View the full details in your MediSmart medical reports.</p>`);
         await this.mail.sendHtml(payload.patientEmail, subject, html);
+        this.realtime.notifyPatientByEmail(payload.patientEmail, 'prescription_ready', {
+            type: 'prescription_ready',
+            title: 'Prescription ready',
+            message: `Prescription is available for appointment ${payload.appointmentId}.`,
+            appointmentId: payload.appointmentId,
+            ts: Date.now(),
+        });
         await this.sms.send(payload.patientPhone, `MediSmart: Prescription ready for appointment ${payload.appointmentId}. ${summary.slice(0, 80)}`);
     }
     async onDoctorApproval(payload) {
         const a = payload.appointment;
         const summary = this.formatSlot(a);
-        const subject = `MediSmart — Appointment approved (${a.id ?? '—'})`;
-        const html = this.wrapHtml('Doctor approved your appointment', `<p>Hi <strong>${this.esc(a.patientName)}</strong>,</p>
-      <p>Your appointment has been approved by <strong>${this.esc(payload.doctorName ?? a.doctorName)}</strong>.</p>
+        const subject = 'Your appointment has been confirmed';
+        const doctorName = payload.doctorName ?? a.doctorName;
+        const html = this.wrapHtml('Appointment confirmed', `<p>Hi <strong>${this.esc(a.patientName)}</strong>,</p>
+      <p>We are pleased to inform you that your appointment with <strong>${this.esc(doctorName)}</strong> has been successfully approved.</p>
       <ul>
         <li><strong>Appointment ID:</strong> ${this.esc(a.id)}</li>
-        <li><strong>Doctor:</strong> ${this.esc(a.doctorName)}</li>
+        <li><strong>Doctor:</strong> ${this.esc(doctorName)}</li>
         <li><strong>Scheduled:</strong> ${this.esc(summary)}</li>
       </ul>
-      <p>You can now join consultation at the scheduled time from your dashboard.</p>`);
+      <p>Please join on time from your dashboard. If you need to reschedule or cancel, kindly update your appointment in advance.</p>
+      <p style="color:#64748b;font-size:13px">Thank you for choosing MediSmart. We look forward to supporting your care.</p>`);
         await this.mail.sendHtml(payload.patientEmail, subject, html);
+        this.realtime.notifyPatientByEmail(payload.patientEmail, 'appointment_doctor_approved', {
+            type: 'appointment_doctor_approved',
+            title: 'Appointment approved',
+            message: `Your appointment has been approved by ${doctorName ?? 'the doctor'}.`,
+            appointment: a,
+            ts: Date.now(),
+        });
         await this.sms.send(payload.patientPhone, `MediSmart: Appointment ${a.id ?? ''} approved by ${a.doctorName ?? 'doctor'}. Time: ${summary}.`);
+    }
+    async onPaymentSuccess(payload) {
+        const a = payload.appointment;
+        this.realtime.notifyPatientByEmail(payload.patientEmail, 'payment_success', {
+            type: 'payment_success',
+            title: 'Payment completed',
+            message: `Payment completed for appointment ${a.id ?? '—'}.`,
+            appointment: a,
+            ts: Date.now(),
+        });
+        this.realtime.notifyDoctorById(a.doctorId, 'payment_success', {
+            type: 'payment_success',
+            title: 'Appointment confirmed',
+            message: `Payment is complete for appointment ${a.id ?? '—'}.`,
+            appointment: a,
+            ts: Date.now(),
+        });
     }
     formatSlot(a) {
         const parts = [a.appointmentDateKey, a.day, a.startTime, a.endTime].filter(Boolean);
@@ -188,6 +259,7 @@ exports.NotificationDispatcherService = NotificationDispatcherService;
 exports.NotificationDispatcherService = NotificationDispatcherService = NotificationDispatcherService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [mail_service_1.MailService,
-        sms_service_1.SmsService])
+        sms_service_1.SmsService,
+        realtime_notification_service_1.RealtimeNotificationService])
 ], NotificationDispatcherService);
 //# sourceMappingURL=notification-dispatcher.service.js.map

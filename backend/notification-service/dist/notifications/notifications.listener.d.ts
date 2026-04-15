@@ -35,4 +35,8 @@ export declare class NotificationsListener {
         doctorName?: string;
         appointment: Record<string, unknown>;
     }): Promise<void>;
+    onPaymentSuccess(data: {
+        patientEmail?: string;
+        appointment: Record<string, unknown>;
+    }): Promise<void>;
 }
