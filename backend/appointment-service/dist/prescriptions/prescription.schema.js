@@ -16,6 +16,7 @@ let Prescription = class Prescription {
     patientId;
     patientEmail;
     doctorId;
+    doctorName;
     appointmentId;
     diagnosis;
     symptoms;
@@ -41,6 +42,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Prescription.prototype, "doctorId", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ trim: true }),
+    __metadata("design:type", String)
+], Prescription.prototype, "doctorName", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)

@@ -5,21 +5,21 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const url = process.env.RABBITMQ_URL ?? 'amqp://localhost:5672';
-  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
-    AppModule,
-    {
-      transport: Transport.RMQ,
-      options: {
-        urls: [url],
-        queue: 'notifications_queue',
-        queueOptions: {
-          durable: true,
-        },
-        prefetchCount: 5,
-        noAck: false,
+  const port = Number(process.env.PORT ?? 3008);
+  const app = await NestFactory.create(AppModule);
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [url],
+      queue: 'notifications_queue',
+      queueOptions: {
+        durable: true,
       },
+      prefetchCount: 5,
+      noAck: false,
     },
-  );
-  await app.listen();
+  });
+  await app.startAllMicroservices();
+  await app.listen(port);
 }
 bootstrap();

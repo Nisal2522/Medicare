@@ -4,6 +4,7 @@ export declare class Prescription {
     patientId?: Types.ObjectId;
     patientEmail: string;
     doctorId: Types.ObjectId;
+    doctorName?: string;
     appointmentId: Types.ObjectId;
     diagnosis: string;
     symptoms?: string;
@@ -50,6 +51,15 @@ export declare const PrescriptionSchema: import("mongoose").Schema<Prescription,
         id: string;
     }> | undefined;
     doctorId?: import("mongoose").SchemaDefinitionProperty<Types.ObjectId, Prescription, import("mongoose").Document<unknown, {}, Prescription, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Prescription & {
+        _id: Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & {
+        id: string;
+    }> | undefined;
+    doctorName?: import("mongoose").SchemaDefinitionProperty<string | undefined, Prescription, import("mongoose").Document<unknown, {}, Prescription, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<Prescription & {
         _id: Types.ObjectId;

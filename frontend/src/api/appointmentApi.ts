@@ -311,6 +311,7 @@ export async function fetchDoctorPrescriptionDetail(
 export type PatientPrescriptionRow = {
   id: string
   appointmentId: string
+  doctorName?: string
   diagnosis: string
   medicinesSummary: string
   followUpDate?: string
@@ -320,6 +321,7 @@ export type PatientPrescriptionRow = {
 export type PatientPrescriptionDetail = {
   id: string
   appointmentId: string
+  doctorName?: string
   diagnosis: string
   symptoms?: string
   clinicalNotes?: string

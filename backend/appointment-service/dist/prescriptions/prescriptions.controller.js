@@ -37,6 +37,27 @@ let PrescriptionsController = class PrescriptionsController {
             limit: limit ? Number(limit) : undefined,
         });
     }
+    getDoctorPrescription(req, id) {
+        if (req.user.role !== 'DOCTOR') {
+            throw new common_1.ForbiddenException('Doctors only');
+        }
+        return this.prescriptions.getForDoctor(req.user.sub, id);
+    }
+    listForPatient(req, q, limit) {
+        if (req.user.role !== 'PATIENT') {
+            throw new common_1.ForbiddenException('Patients only');
+        }
+        return this.prescriptions.listForPatient(req.user.sub, {
+            q,
+            limit: limit ? Number(limit) : undefined,
+        });
+    }
+    getPatientPrescription(req, id) {
+        if (req.user.role !== 'PATIENT') {
+            throw new common_1.ForbiddenException('Patients only');
+        }
+        return this.prescriptions.getForPatient(req.user.sub, id);
+    }
 };
 exports.PrescriptionsController = PrescriptionsController;
 __decorate([
@@ -58,6 +79,34 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String]),
     __metadata("design:returntype", void 0)
 ], PrescriptionsController.prototype, "listForDoctor", null);
+__decorate([
+    (0, common_1.Get)('doctor/me/:id'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], PrescriptionsController.prototype, "getDoctorPrescription", null);
+__decorate([
+    (0, common_1.Get)('patient/me'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)('q')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", void 0)
+], PrescriptionsController.prototype, "listForPatient", null);
+__decorate([
+    (0, common_1.Get)('patient/me/:id'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], PrescriptionsController.prototype, "getPatientPrescription", null);
 exports.PrescriptionsController = PrescriptionsController = __decorate([
     (0, common_1.Controller)('prescriptions'),
     __metadata("design:paramtypes", [prescriptions_service_1.PrescriptionsService])

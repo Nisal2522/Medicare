@@ -14,6 +14,9 @@ export class Prescription {
   @Prop({ type: Types.ObjectId, required: true })
   doctorId!: Types.ObjectId;
 
+  @Prop({ trim: true })
+  doctorName?: string;
+
   @Prop({ type: Types.ObjectId, required: true })
   appointmentId!: Types.ObjectId;
 

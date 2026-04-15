@@ -69,7 +69,7 @@ Browser SPA: **http://localhost:8080**. Set secrets via root `.env` or your shel
    npm run start:dev
    ```
 
-   Suggested order (ports): **doctor-service** (3000) → **auth-service** (3002) → **appointment-service** (3003) → **patient-service** (3004) → **telemedicine-service** (3005) → **ai-service** (3006) → **payment-service** (3007) → **notification-service** (no HTTP port; needs RabbitMQ).
+   Suggested order (ports): **doctor-service** (3000) → **auth-service** (3002) → **appointment-service** (3003) → **patient-service** (3004) → **telemedicine-service** (3005) → **ai-service** (3006) → **payment-service** (3007) → **notification-service** (3008 + RabbitMQ).
 
 3. Frontend:
 
@@ -93,7 +93,7 @@ Use the **same `JWT_SECRET` and `INTERNAL_SERVICE_KEY`** in every service that v
 | **patient-service** | `GET /patients/:id/records` (JWT) | `3004` | `medical_records` |
 | **telemedicine-service** | `GET /telecom/token/:channelName` — Agora RTC token (JWT) | `3005` | reads `appointments` for access |
 | **auth-service**   | `POST /auth/register`, `/auth/login` | `3002` * | `users` collection |
-| **notification-service** | RabbitMQ consumer (`notifications_queue`) — **Nodemailer** (SMTP) + **Twilio** or mock SMS | *(no HTTP port)* | — |
+| **notification-service** | RabbitMQ consumer (`notifications_queue`) + manual SMS API — **Nodemailer** (SMTP) + **Twilio** or mock SMS | `3008` | — |
 | **payment-service** | `POST /payments/create-checkout-session`, Stripe **webhook** → `payment_success_queue` | `3007` | — |
 | **frontend**       | Landing, Find a Doctor, booking, Stripe redirect, **Patient dashboard**, **Agora video** (`/consultation/:id`) | Vite `5173` | — |
 
@@ -242,7 +242,7 @@ Use Stripe CLI or a public URL to forward webhooks to `POST /payments/webhook`.
 
 ## Notification service
 
-Consumes **`notifications_queue`** (same durable queue as appointment-service). No HTTP API — run beside RabbitMQ.
+Consumes **`notifications_queue`** (same durable queue as appointment-service) and exposes HTTP **`POST /sms/send`** for manual/testing sends.
 
 ```bash
 cd backend/notification-service
@@ -321,7 +321,7 @@ VITE_PAYMENT_API_URL=http://localhost:3007
 
 **Docker Compose (from repo root):** `docker compose up --build` (root file **includes** `infrastructure/docker/docker-compose.yml`). If `include` is unsupported on your Docker version, run **`docker compose -f infrastructure/docker/docker-compose.yml up --build`** from the repo root.
 
-Published ports: MongoDB `27017`, RabbitMQ `5672` / management `15672`, APIs `3000`–`3007` (including **payment-service**), **notification-service** (RMQ consumer only), SPA **http://localhost:8080**. Set `JWT_SECRET`, `INTERNAL_SERVICE_KEY`, and optional `STRIPE_*`, `SMTP_*`, `TWILIO_*` in `.env` at the repo root (or your shell).
+Published ports: MongoDB `27017`, RabbitMQ `5672` / management `15672`, APIs `3000`–`3008` (including **payment-service** and **notification-service**), SPA **http://localhost:8080**. Set `JWT_SECRET`, `INTERNAL_SERVICE_KEY`, and optional `STRIPE_*`, `SMTP_*`, `TWILIO_*` in `.env` at the repo root (or your shell).
 
 Each Nest app has a **multi-stage `Dockerfile`**. The frontend image builds static assets and serves them with **nginx** (`/health` for probes).
 

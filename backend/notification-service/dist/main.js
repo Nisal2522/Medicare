@@ -5,7 +5,9 @@ const microservices_1 = require("@nestjs/microservices");
 const app_module_1 = require("./app.module");
 async function bootstrap() {
     const url = process.env.RABBITMQ_URL ?? 'amqp://localhost:5672';
-    const app = await core_1.NestFactory.createMicroservice(app_module_1.AppModule, {
+    const port = Number(process.env.PORT ?? 3008);
+    const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    app.connectMicroservice({
         transport: microservices_1.Transport.RMQ,
         options: {
             urls: [url],
@@ -17,7 +19,8 @@ async function bootstrap() {
             noAck: false,
         },
     });
-    await app.listen();
+    await app.startAllMicroservices();
+    await app.listen(port);
 }
 bootstrap();
 //# sourceMappingURL=main.js.map

@@ -22,6 +22,17 @@ let NotificationDispatcherService = NotificationDispatcherService_1 = class Noti
         this.mail = mail;
         this.sms = sms;
     }
+    async onUserRegistered(payload) {
+        const subject = 'MediSmart - Welcome to your account';
+        const html = this.wrapHtml('Welcome to MediSmart', `<p>Hi <strong>${this.esc(payload.fullName)}</strong>,</p>
+      <p>Your MediSmart account has been created successfully.</p>
+      <ul>
+        <li><strong>Email:</strong> ${this.esc(payload.email)}</li>
+        <li><strong>Role:</strong> ${this.esc(payload.role)}</li>
+      </ul>
+      <p>You can now sign in and continue using the platform.</p>`);
+        await this.mail.sendHtml(payload.email, subject, html);
+    }
     async onBookingConfirmation(payload) {
         const a = payload.appointment;
         const summary = this.formatSlot(a);

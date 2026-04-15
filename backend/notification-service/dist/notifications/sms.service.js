@@ -24,39 +24,92 @@ let SmsService = SmsService_1 = class SmsService {
     twilioFrom = null;
     constructor(config) {
         this.config = config;
-        const sid = this.config.get('TWILIO_ACCOUNT_SID');
-        const token = this.config.get('TWILIO_AUTH_TOKEN');
-        const from = this.config.get('TWILIO_PHONE_NUMBER');
+        const sid = this.config.get('TWILIO_ACCOUNT_SID')?.trim();
+        const token = this.config.get('TWILIO_AUTH_TOKEN')?.trim();
+        const from = this.config.get('TWILIO_PHONE_NUMBER')?.trim();
         if (sid && token && from) {
             this.twilioClient = (0, twilio_1.default)(sid, token);
             this.twilioFrom = from;
-            this.logger.log('Twilio SMS enabled');
+            this.logger.log(`Twilio SMS enabled (from: ${from})`);
         }
         else {
-            this.logger.warn('Twilio not configured — SMS will be mocked (console log only).');
+            const missing = [
+                !sid ? 'TWILIO_ACCOUNT_SID' : null,
+                !token ? 'TWILIO_AUTH_TOKEN' : null,
+                !from ? 'TWILIO_PHONE_NUMBER' : null,
+            ]
+                .filter(Boolean)
+                .join(', ');
+            this.logger.warn(`Twilio not configured (${missing}) — SMS will be mocked (console log only).`);
         }
+    }
+    normalizePhone(to) {
+        const trimmed = to.trim().replace(/[()\-\s]/g, '');
+        if (!trimmed)
+            return '';
+        if (trimmed.startsWith('+'))
+            return trimmed;
+        if (/^0\d{9}$/.test(trimmed)) {
+            return `+94${trimmed.slice(1)}`;
+        }
+        if (/^94\d{9}$/.test(trimmed)) {
+            return `+${trimmed}`;
+        }
+        return trimmed;
+    }
+    isE164(phone) {
+        return /^\+[1-9]\d{7,14}$/.test(phone);
     }
     async send(to, body) {
         const n = to?.trim();
+        const normalized = n ? this.normalizePhone(n) : '';
         if (!n) {
             this.logger.log(`SMS (no phone): ${body.slice(0, 120)}…`);
-            return;
+            return { success: false, provider: 'mock', error: 'Phone number missing' };
+        }
+        if (!this.isE164(normalized)) {
+            const error = `Invalid phone format. Use E.164 (e.g. +94719839270). Received: ${n}`;
+            this.logger.warn(error);
+            return {
+                success: false,
+                provider: this.twilioClient ? 'twilio' : 'mock',
+                to: normalized || n,
+                error,
+            };
         }
         if (this.twilioClient && this.twilioFrom) {
             try {
-                await this.twilioClient.messages.create({
+                const result = await this.twilioClient.messages.create({
                     from: this.twilioFrom,
-                    to: n,
+                    to: normalized,
                     body,
                 });
-                this.logger.log(`SMS sent via Twilio to ${n}`);
+                this.logger.log(`SMS sent via Twilio to ${normalized}`);
+                return {
+                    success: true,
+                    provider: 'twilio',
+                    to: normalized,
+                    sid: result.sid,
+                };
             }
             catch (e) {
-                this.logger.warn(`SMS send failed for ${n}: ${String(e)}`);
+                const twilioError = e;
+                const msg = twilioError.message ?? String(e);
+                const code = twilioError.code;
+                const status = twilioError.status;
+                const moreInfo = twilioError.moreInfo;
+                this.logger.error(`Twilio SMS failed for ${normalized} | code=${code ?? 'n/a'} status=${status ?? 'n/a'} message=${msg}${moreInfo ? ` | moreInfo=${moreInfo}` : ''}`);
+                return {
+                    success: false,
+                    provider: 'twilio',
+                    to: normalized,
+                    code,
+                    error: msg,
+                };
             }
-            return;
         }
-        this.logger.log(`SMS sent to [${n}]: ${body}`);
+        this.logger.log(`SMS sent to [${normalized}]: ${body}`);
+        return { success: true, provider: 'mock', to: normalized };
     }
 };
 exports.SmsService = SmsService;

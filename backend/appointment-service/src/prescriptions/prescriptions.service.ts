@@ -4,6 +4,7 @@ import { Inject } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { Model, Types } from 'mongoose';
 import { AppointmentsService } from '../appointments/appointments.service';
+import { Appointment, AppointmentDocument } from '../appointments/appointment.schema';
 import type { JwtPayload } from '../auth/jwt.strategy';
 import { IssuePrescriptionDto } from './dto/issue-prescription.dto';
 import {
@@ -16,6 +17,8 @@ export class PrescriptionsService {
   constructor(
     @InjectModel(Prescription.name)
     private readonly prescriptionModel: Model<PrescriptionDocument>,
+    @InjectModel(Appointment.name)
+    private readonly appointmentModel: Model<AppointmentDocument>,
     private readonly appointments: AppointmentsService,
     @Inject('NOTIFICATIONS_CLIENT') private readonly notifications: ClientProxy,
   ) {}
@@ -30,6 +33,7 @@ export class PrescriptionsService {
       patientId: appt.patientId,
       patientEmail: appt.patientEmail,
       doctorId: appt.doctorId,
+      doctorName: appt.doctorName,
       appointmentId: appt._id,
       diagnosis: dto.diagnosis.trim(),
       symptoms: dto.symptoms?.trim() || undefined,
@@ -64,6 +68,7 @@ export class PrescriptionsService {
       patientId: o.patientId ? String(o.patientId) : undefined,
       patientEmail: o.patientEmail,
       doctorId: String(o.doctorId),
+      doctorName: o.doctorName,
       appointmentId: String(o.appointmentId),
       diagnosis: o.diagnosis,
       symptoms: o.symptoms,
@@ -168,6 +173,7 @@ export class PrescriptionsService {
     Array<{
       id: string;
       appointmentId: string;
+      doctorName?: string;
       diagnosis: string;
       medicinesSummary: string;
       followUpDate?: string;
@@ -201,11 +207,19 @@ export class PrescriptionsService {
       .lean()
       .exec();
 
+    const fallbackDoctorNames = await this.resolveDoctorNamesByAppointmentIds(
+      rows
+        .filter((r) => !r.doctorName)
+        .map((r) => String(r.appointmentId)),
+    );
+
     return rows.map((o) => {
       const row = o as typeof o & { createdAt?: Date };
       return {
         id: String(o._id),
         appointmentId: String(o.appointmentId),
+        doctorName:
+          o.doctorName ?? fallbackDoctorNames.get(String(o.appointmentId)),
         diagnosis: o.diagnosis,
         medicinesSummary: (o.medicines ?? [])
           .map((m) =>
@@ -228,6 +242,7 @@ export class PrescriptionsService {
   ): Promise<{
     id: string;
     appointmentId: string;
+    doctorName?: string;
     diagnosis: string;
     symptoms?: string;
     clinicalNotes?: string;
@@ -262,9 +277,13 @@ export class PrescriptionsService {
     }
 
     const createdAtRow = row as typeof row & { createdAt?: Date };
+    const fallbackDoctorName = row.doctorName
+      ? undefined
+      : await this.resolveDoctorName(String(row.appointmentId));
     return {
       id: String(row._id),
       appointmentId: String(row.appointmentId),
+      doctorName: row.doctorName ?? fallbackDoctorName,
       diagnosis: row.diagnosis,
       symptoms: row.symptoms,
       clinicalNotes: row.clinicalNotes,
@@ -292,6 +311,43 @@ export class PrescriptionsService {
         ? new Date(createdAtRow.createdAt as Date).toISOString()
         : undefined,
     };
+  }
+
+  private async resolveDoctorName(appointmentId: string): Promise<string | undefined> {
+    if (!Types.ObjectId.isValid(appointmentId)) {
+      return undefined;
+    }
+    const row = await this.appointmentModel
+      .findById(new Types.ObjectId(appointmentId), { doctorName: 1 })
+      .lean()
+      .exec();
+    return row?.doctorName;
+  }
+
+  private async resolveDoctorNamesByAppointmentIds(
+    appointmentIds: string[],
+  ): Promise<Map<string, string>> {
+    const validIds = appointmentIds
+      .filter((id, index, arr) => arr.indexOf(id) === index)
+      .filter((id) => Types.ObjectId.isValid(id))
+      .map((id) => new Types.ObjectId(id));
+
+    if (validIds.length === 0) {
+      return new Map<string, string>();
+    }
+
+    const rows = await this.appointmentModel
+      .find({ _id: { $in: validIds } }, { doctorName: 1 })
+      .lean()
+      .exec();
+
+    const map = new Map<string, string>();
+    for (const row of rows) {
+      if (row.doctorName) {
+        map.set(String(row._id), row.doctorName);
+      }
+    }
+    return map;
   }
 
   async getForDoctor(

@@ -17,6 +17,11 @@ export declare class NotificationDispatcherService {
     private readonly sms;
     private readonly logger;
     constructor(mail: MailService, sms: SmsService);
+    onUserRegistered(payload: {
+        email: string;
+        fullName: string;
+        role: string;
+    }): Promise<void>;
     onBookingConfirmation(payload: {
         patientEmail: string;
         patientPhone?: string;

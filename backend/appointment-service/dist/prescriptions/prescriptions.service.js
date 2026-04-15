@@ -19,13 +19,16 @@ const common_2 = require("@nestjs/common");
 const microservices_1 = require("@nestjs/microservices");
 const mongoose_2 = require("mongoose");
 const appointments_service_1 = require("../appointments/appointments.service");
+const appointment_schema_1 = require("../appointments/appointment.schema");
 const prescription_schema_1 = require("./prescription.schema");
 let PrescriptionsService = class PrescriptionsService {
     prescriptionModel;
+    appointmentModel;
     appointments;
     notifications;
-    constructor(prescriptionModel, appointments, notifications) {
+    constructor(prescriptionModel, appointmentModel, appointments, notifications) {
         this.prescriptionModel = prescriptionModel;
+        this.appointmentModel = appointmentModel;
         this.appointments = appointments;
         this.notifications = notifications;
     }
@@ -35,6 +38,7 @@ let PrescriptionsService = class PrescriptionsService {
             patientId: appt.patientId,
             patientEmail: appt.patientEmail,
             doctorId: appt.doctorId,
+            doctorName: appt.doctorName,
             appointmentId: appt._id,
             diagnosis: dto.diagnosis.trim(),
             symptoms: dto.symptoms?.trim() || undefined,
@@ -63,6 +67,7 @@ let PrescriptionsService = class PrescriptionsService {
             patientId: o.patientId ? String(o.patientId) : undefined,
             patientEmail: o.patientEmail,
             doctorId: String(o.doctorId),
+            doctorName: o.doctorName,
             appointmentId: String(o.appointmentId),
             diagnosis: o.diagnosis,
             symptoms: o.symptoms,
@@ -133,13 +138,180 @@ let PrescriptionsService = class PrescriptionsService {
             };
         });
     }
+    async listForPatient(patientSub, opts) {
+        const pid = new mongoose_2.Types.ObjectId(patientSub);
+        const q = opts?.q?.trim();
+        const cap = Math.max(1, Math.min(100, Number(opts?.limit ?? 25)));
+        const query = { patientId: pid };
+        if (q) {
+            const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+            query.$or = [
+                { diagnosis: rx },
+                { symptoms: rx },
+                { clinicalNotes: rx },
+                { specialAdvice: rx },
+                { 'medicines.name': rx },
+            ];
+        }
+        const rows = await this.prescriptionModel
+            .find(query)
+            .sort({ createdAt: -1 })
+            .limit(cap)
+            .lean()
+            .exec();
+        const fallbackDoctorNames = await this.resolveDoctorNamesByAppointmentIds(rows
+            .filter((r) => !r.doctorName)
+            .map((r) => String(r.appointmentId)));
+        return rows.map((o) => {
+            const row = o;
+            return {
+                id: String(o._id),
+                appointmentId: String(o.appointmentId),
+                doctorName: o.doctorName ?? fallbackDoctorNames.get(String(o.appointmentId)),
+                diagnosis: o.diagnosis,
+                medicinesSummary: (o.medicines ?? [])
+                    .map((m) => [m.name, m.dosage, m.frequency, m.duration].filter(Boolean).join(' · '))
+                    .join(', '),
+                followUpDate: o.followUpDate
+                    ? new Date(o.followUpDate).toISOString()
+                    : undefined,
+                createdAt: row.createdAt
+                    ? new Date(row.createdAt).toISOString()
+                    : undefined,
+            };
+        });
+    }
+    async getForPatient(patientSub, prescriptionId) {
+        if (!mongoose_2.Types.ObjectId.isValid(prescriptionId)) {
+            throw new common_1.NotFoundException('Prescription not found');
+        }
+        const pid = new mongoose_2.Types.ObjectId(patientSub);
+        const rid = new mongoose_2.Types.ObjectId(prescriptionId);
+        const row = await this.prescriptionModel
+            .findOne({ _id: rid, patientId: pid })
+            .lean()
+            .exec();
+        if (!row) {
+            throw new common_1.NotFoundException('Prescription not found');
+        }
+        const createdAtRow = row;
+        const fallbackDoctorName = row.doctorName
+            ? undefined
+            : await this.resolveDoctorName(String(row.appointmentId));
+        return {
+            id: String(row._id),
+            appointmentId: String(row.appointmentId),
+            doctorName: row.doctorName ?? fallbackDoctorName,
+            diagnosis: row.diagnosis,
+            symptoms: row.symptoms,
+            clinicalNotes: row.clinicalNotes,
+            specialAdvice: row.specialAdvice,
+            labTests: row.labTests,
+            followUpDate: row.followUpDate
+                ? new Date(row.followUpDate).toISOString()
+                : undefined,
+            patientName: row.patientName,
+            patientAge: row.patientAge,
+            patientGender: row.patientGender,
+            medicines: (row.medicines ?? []).map((m) => ({
+                name: m.name,
+                dosage: m.dosage,
+                frequency: m.frequency,
+                duration: m.duration,
+                instructions: m.instructions,
+            })),
+            medicinesSummary: (row.medicines ?? [])
+                .map((m) => [m.name, m.dosage, m.frequency, m.duration].filter(Boolean).join(' · '))
+                .join(', '),
+            createdAt: createdAtRow.createdAt
+                ? new Date(createdAtRow.createdAt).toISOString()
+                : undefined,
+        };
+    }
+    async resolveDoctorName(appointmentId) {
+        if (!mongoose_2.Types.ObjectId.isValid(appointmentId)) {
+            return undefined;
+        }
+        const row = await this.appointmentModel
+            .findById(new mongoose_2.Types.ObjectId(appointmentId), { doctorName: 1 })
+            .lean()
+            .exec();
+        return row?.doctorName;
+    }
+    async resolveDoctorNamesByAppointmentIds(appointmentIds) {
+        const validIds = appointmentIds
+            .filter((id, index, arr) => arr.indexOf(id) === index)
+            .filter((id) => mongoose_2.Types.ObjectId.isValid(id))
+            .map((id) => new mongoose_2.Types.ObjectId(id));
+        if (validIds.length === 0) {
+            return new Map();
+        }
+        const rows = await this.appointmentModel
+            .find({ _id: { $in: validIds } }, { doctorName: 1 })
+            .lean()
+            .exec();
+        const map = new Map();
+        for (const row of rows) {
+            if (row.doctorName) {
+                map.set(String(row._id), row.doctorName);
+            }
+        }
+        return map;
+    }
+    async getForDoctor(doctorSub, prescriptionId) {
+        if (!mongoose_2.Types.ObjectId.isValid(prescriptionId)) {
+            throw new common_1.NotFoundException('Prescription not found');
+        }
+        const did = new mongoose_2.Types.ObjectId(doctorSub);
+        const rid = new mongoose_2.Types.ObjectId(prescriptionId);
+        const row = await this.prescriptionModel
+            .findOne({ _id: rid, doctorId: did })
+            .lean()
+            .exec();
+        if (!row) {
+            throw new common_1.NotFoundException('Prescription not found');
+        }
+        const createdAtRow = row;
+        return {
+            id: String(row._id),
+            patientId: row.patientId ? String(row.patientId) : undefined,
+            appointmentId: String(row.appointmentId),
+            diagnosis: row.diagnosis,
+            symptoms: row.symptoms,
+            clinicalNotes: row.clinicalNotes,
+            specialAdvice: row.specialAdvice,
+            labTests: row.labTests,
+            followUpDate: row.followUpDate
+                ? new Date(row.followUpDate).toISOString()
+                : undefined,
+            patientName: row.patientName,
+            patientAge: row.patientAge,
+            patientGender: row.patientGender,
+            patientEmail: row.patientEmail,
+            medicines: (row.medicines ?? []).map((m) => ({
+                name: m.name,
+                dosage: m.dosage,
+                frequency: m.frequency,
+                duration: m.duration,
+                instructions: m.instructions,
+            })),
+            medicinesSummary: (row.medicines ?? [])
+                .map((m) => [m.name, m.dosage, m.frequency, m.duration].filter(Boolean).join(' · '))
+                .join(', '),
+            createdAt: createdAtRow.createdAt
+                ? new Date(createdAtRow.createdAt).toISOString()
+                : undefined,
+        };
+    }
 };
 exports.PrescriptionsService = PrescriptionsService;
 exports.PrescriptionsService = PrescriptionsService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(prescription_schema_1.Prescription.name)),
-    __param(2, (0, common_2.Inject)('NOTIFICATIONS_CLIENT')),
+    __param(1, (0, mongoose_1.InjectModel)(appointment_schema_1.Appointment.name)),
+    __param(3, (0, common_2.Inject)('NOTIFICATIONS_CLIENT')),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         appointments_service_1.AppointmentsService,
         microservices_1.ClientProxy])
 ], PrescriptionsService);

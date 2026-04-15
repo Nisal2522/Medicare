@@ -5,6 +5,7 @@ import { NotificationDispatcherService } from './notifications/notification-disp
 import { MailService } from './notifications/mail.service';
 import { NotificationQueueConsumer } from './notifications/notification-queue.consumer';
 import { SmsService } from './notifications/sms.service';
+import { SmsController } from './notifications/sms.controller';
 
 @Module({
   imports: [
@@ -12,7 +13,7 @@ import { SmsService } from './notifications/sms.service';
       isGlobal: true,
     }),
   ],
-  controllers: [NotificationsListener],
+  controllers: [NotificationsListener, SmsController],
   providers: [
     MailService,
     SmsService,

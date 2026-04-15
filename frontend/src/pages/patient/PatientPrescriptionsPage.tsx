@@ -1,6 +1,6 @@
 import { isAxiosError } from 'axios'
 import { jsPDF } from 'jspdf'
-import { Download, Loader2, Pill } from 'lucide-react'
+import { Download, Eye, Loader2, Pill, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   fetchPatientPrescriptionDetail,
@@ -36,6 +36,54 @@ export default function PatientPrescriptionsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [selected, setSelected] = useState<PatientPrescriptionRow | null>(null)
+  const [detail, setDetail] = useState<ReturnType<typeof buildEmptyDetail> | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState<string | null>(null)
+
+  function buildEmptyDetail() {
+    return {
+      diagnosis: '',
+      symptoms: '',
+      clinicalNotes: '',
+      specialAdvice: '',
+      labTests: '',
+      followUpDate: undefined as string | undefined,
+      medicines: [] as Array<{
+        name: string
+        dosage: string
+        frequency?: string
+        duration: string
+        instructions?: string
+      }>,
+      doctorName: undefined as string | undefined,
+    }
+  }
+
+  const openDetails = async (row: PatientPrescriptionRow) => {
+    if (!token) return
+    try {
+      setSelected(row)
+      setDetailLoading(true)
+      setDetailError(null)
+      setDetail(null)
+      const data = await fetchPatientPrescriptionDetail(token, row.id)
+      setDetail({
+        diagnosis: data.diagnosis,
+        symptoms: data.symptoms ?? '',
+        clinicalNotes: data.clinicalNotes ?? '',
+        specialAdvice: data.specialAdvice ?? '',
+        labTests: data.labTests ?? '',
+        followUpDate: data.followUpDate,
+        medicines: data.medicines,
+        doctorName: data.doctorName || row.doctorName,
+      })
+    } catch {
+      setDetailError('Could not load prescription details.')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
 
   const handleDownload = async (prescriptionId: string) => {
     if (!token) return
@@ -225,6 +273,9 @@ export default function PatientPrescriptionsPage() {
                   <p className="mt-0.5 text-sm text-slate-600">
                     {r.medicinesSummary || 'Medicines listed in prescription'}
                   </p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    Doctor: <span className="font-medium">{r.doctorName || 'Not available'}</span>
+                  </p>
                   <p className="mt-1 text-xs text-slate-500">
                     Issued: {formatDate(r.createdAt)}
                     {r.followUpDate ? ` · Follow-up: ${formatDate(r.followUpDate)}` : ''}
@@ -232,6 +283,16 @@ export default function PatientPrescriptionsPage() {
                 </div>
                 <div className="flex flex-col items-start gap-2 sm:items-end">
                   <p className="text-xs text-slate-500">Appointment: {r.appointmentId}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void openDetails(r)
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-800 transition hover:bg-sky-100"
+                  >
+                    <Eye className="h-3.5 w-3.5" aria-hidden />
+                    View details
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -253,6 +314,107 @@ export default function PatientPrescriptionsPage() {
           </ul>
         )}
       </div>
+
+      {(selected || detailLoading || detailError) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Prescription details</h3>
+                <p className="text-xs text-slate-500">{selected ? selected.id : ''}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelected(null)
+                  setDetail(null)
+                  setDetailError(null)
+                }}
+                className="rounded-lg border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-50"
+                aria-label="Close details"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] space-y-4 overflow-y-auto bg-slate-50 px-5 py-4 text-sm">
+              {detailLoading ? (
+                <div className="flex items-center justify-center gap-2 py-10 text-slate-600">
+                  <Loader2 className="h-5 w-5 animate-spin text-sky-600" />
+                  Loading details...
+                </div>
+              ) : detailError ? (
+                <p className="py-8 text-center text-sm text-rose-600">{detailError}</p>
+              ) : selected && detail ? (
+                <>
+                  <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
+                    <p>
+                      <span className="font-semibold text-slate-700">Doctor:</span>{' '}
+                      {detail.doctorName || selected.doctorName || 'Not available'}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-slate-700">Issued:</span>{' '}
+                      {formatDate(selected.createdAt)}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-slate-700">Follow-up:</span>{' '}
+                      {formatDate(detail.followUpDate)}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-slate-700">Appointment:</span>{' '}
+                      <span className="font-mono text-xs">{selected.appointmentId}</span>
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
+                    <p>
+                      <span className="font-semibold text-slate-700">Diagnosis:</span>{' '}
+                      {detail.diagnosis || '—'}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-slate-700">Symptoms:</span>{' '}
+                      {detail.symptoms || '—'}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-slate-700">Clinical Notes:</span>{' '}
+                      {detail.clinicalNotes || '—'}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-slate-700">Special Advice:</span>{' '}
+                      {detail.specialAdvice || '—'}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-slate-700">Lab Tests:</span>{' '}
+                      {detail.labTests || '—'}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="font-semibold text-slate-800">Medicines</p>
+                    {detail.medicines.length === 0 ? (
+                      <p className="mt-2 text-slate-500">No medicines listed.</p>
+                    ) : (
+                      <ul className="mt-3 space-y-2">
+                        {detail.medicines.map((m, i) => (
+                          <li key={`${m.name}-${i}`} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                            <p className="font-medium text-slate-900">{m.name}</p>
+                            <p className="text-xs text-slate-600">
+                              {m.dosage} · {m.frequency || 'No frequency'} · {m.duration}
+                            </p>
+                            {m.instructions ? (
+                              <p className="mt-1 text-xs text-slate-500">Instructions: {m.instructions}</p>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

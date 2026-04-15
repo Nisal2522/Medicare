@@ -17,6 +17,7 @@ const notification_dispatcher_service_1 = require("./notifications/notification-
 const mail_service_1 = require("./notifications/mail.service");
 const notification_queue_consumer_1 = require("./notifications/notification-queue.consumer");
 const sms_service_1 = require("./notifications/sms.service");
+const sms_controller_1 = require("./notifications/sms.controller");
 let AppModule = class AppModule {
     _queueConsumer;
     constructor(_queueConsumer) {
@@ -31,7 +32,7 @@ exports.AppModule = AppModule = __decorate([
                 isGlobal: true,
             }),
         ],
-        controllers: [notifications_listener_1.NotificationsListener],
+        controllers: [notifications_listener_1.NotificationsListener, sms_controller_1.SmsController],
         providers: [
             mail_service_1.MailService,
             sms_service_1.SmsService,

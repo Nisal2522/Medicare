@@ -178,9 +178,12 @@ services:
       context: ./backend/notification-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    ports:
+      - '3008:3008'
     env_file:
       - ./backend/notification-service/.env
     environment:
+      PORT: '3008'
       RABBITMQ_URL: amqp://rabbitmq:5672
     depends_on:
       rabbitmq:

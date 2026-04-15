@@ -223,8 +223,11 @@ let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
     async book(dto, authHeader) {
         const appointmentDateKey = this.parseDateKey(dto.appointmentDate);
         const weekday = this.weekdayFromYmd(appointmentDateKey);
-        if (weekday !== dto.day) {
-            throw new common_1.BadRequestException(`appointmentDate falls on ${weekday}, not ${dto.day} (${COLOMBO})`);
+        const selectedDay = dto.day.trim();
+        const selectedStartTime = dto.startTime.trim();
+        const selectedEndTime = dto.endTime.trim();
+        if (weekday !== selectedDay) {
+            throw new common_1.BadRequestException(`appointmentDate falls on ${weekday}, not ${selectedDay} (${COLOMBO})`);
         }
         const doctor = await this.fetchDoctor(dto.doctorId);
         const slot = this.resolveSlot(doctor, dto);
@@ -235,14 +238,16 @@ let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
         const fee = dto.consultationFee != null && !Number.isNaN(Number(dto.consultationFee))
             ? Number(dto.consultationFee)
             : 0;
-        const slotKey = `${dto.day}|${dto.startTime}|${dto.endTime}`;
+        const slotKey = `${selectedDay}|${selectedStartTime}|${selectedEndTime}`;
         const doctorObjectId = new mongoose_2.Types.ObjectId(dto.doctorId);
         const normalizedEmail = dto.patientEmail.trim().toLowerCase();
         const existingForPatient = await this.appointmentModel
             .findOne({
             doctorId: doctorObjectId,
             appointmentDateKey,
-            slotKey,
+            day: selectedDay,
+            startTime: selectedStartTime,
+            endTime: selectedEndTime,
             patientEmail: normalizedEmail,
             status: { $ne: appointment_schema_1.AppointmentStatus.CANCELLED },
         })
@@ -276,9 +281,9 @@ let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
                     doctorPhone: dto.doctorPhone?.trim(),
                     doctorEmail: dto.doctorEmail?.trim().toLowerCase(),
                     appointmentDateKey,
-                    day: dto.day,
-                    startTime: dto.startTime,
-                    endTime: dto.endTime,
+                    day: selectedDay,
+                    startTime: selectedStartTime,
+                    endTime: selectedEndTime,
                     consultationFee: fee,
                     status: appointment_schema_1.AppointmentStatus.PENDING_PAYMENT,
                     doctorApprovalStatus: appointment_schema_1.DoctorApprovalStatus.PENDING,

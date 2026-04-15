@@ -23,6 +23,10 @@ let NotificationsListener = NotificationsListener_1 = class NotificationsListene
     constructor(dispatcher) {
         this.dispatcher = dispatcher;
     }
+    async onUserRegistered(data) {
+        this.logger.log(`user_registered → ${data.email}`);
+        await this.dispatcher.onUserRegistered(data);
+    }
     async onAppointmentCreated(data) {
         this.logger.log(`appointment_created → ${data.patientEmail}`);
         await this.dispatcher.onBookingConfirmation({
@@ -52,6 +56,13 @@ let NotificationsListener = NotificationsListener_1 = class NotificationsListene
     }
 };
 exports.NotificationsListener = NotificationsListener;
+__decorate([
+    (0, microservices_1.EventPattern)('user_registered'),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], NotificationsListener.prototype, "onUserRegistered", null);
 __decorate([
     (0, microservices_1.EventPattern)('appointment_created'),
     __param(0, (0, microservices_1.Payload)()),

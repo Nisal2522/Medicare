@@ -242,9 +242,12 @@ export class AppointmentsService implements OnModuleInit {
   ): Promise<{ message: string; appointment: ReturnType<AppointmentsService['mapRow']> }> {
     const appointmentDateKey = this.parseDateKey(dto.appointmentDate);
     const weekday = this.weekdayFromYmd(appointmentDateKey);
-    if (weekday !== dto.day) {
+    const selectedDay = dto.day.trim();
+    const selectedStartTime = dto.startTime.trim();
+    const selectedEndTime = dto.endTime.trim();
+    if (weekday !== selectedDay) {
       throw new BadRequestException(
-        `appointmentDate falls on ${weekday}, not ${dto.day} (${COLOMBO})`,
+        `appointmentDate falls on ${weekday}, not ${selectedDay} (${COLOMBO})`,
       );
     }
 
@@ -260,16 +263,19 @@ export class AppointmentsService implements OnModuleInit {
       dto.consultationFee != null && !Number.isNaN(Number(dto.consultationFee))
         ? Number(dto.consultationFee)
         : 0;
-    const slotKey = `${dto.day}|${dto.startTime}|${dto.endTime}`;
+    const slotKey = `${selectedDay}|${selectedStartTime}|${selectedEndTime}`;
 
     const doctorObjectId = new Types.ObjectId(dto.doctorId);
     const normalizedEmail = dto.patientEmail.trim().toLowerCase();
 
+    // Allow multiple bookings on the same day; block only exact same slot duplicates.
     const existingForPatient = await this.appointmentModel
       .findOne({
         doctorId: doctorObjectId,
         appointmentDateKey,
-        slotKey,
+        day: selectedDay,
+        startTime: selectedStartTime,
+        endTime: selectedEndTime,
         patientEmail: normalizedEmail,
         status: { $ne: AppointmentStatus.CANCELLED },
       })
@@ -307,9 +313,9 @@ export class AppointmentsService implements OnModuleInit {
           doctorPhone: dto.doctorPhone?.trim(),
           doctorEmail: dto.doctorEmail?.trim().toLowerCase(),
           appointmentDateKey,
-          day: dto.day,
-          startTime: dto.startTime,
-          endTime: dto.endTime,
+          day: selectedDay,
+          startTime: selectedStartTime,
+          endTime: selectedEndTime,
           consultationFee: fee,
           status: AppointmentStatus.PENDING_PAYMENT,
           doctorApprovalStatus: DoctorApprovalStatus.PENDING,

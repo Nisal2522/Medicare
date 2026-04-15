@@ -3,6 +3,11 @@ export declare class NotificationsListener {
     private readonly dispatcher;
     private readonly logger;
     constructor(dispatcher: NotificationDispatcherService);
+    onUserRegistered(data: {
+        email: string;
+        fullName: string;
+        role: string;
+    }): Promise<void>;
     onAppointmentCreated(data: {
         patientEmail: string;
         patientPhone?: string;
