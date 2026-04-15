@@ -15,7 +15,7 @@ import {
   UserCheck,
   Users,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Bar,
   BarChart,
@@ -34,11 +34,14 @@ import toast from 'react-hot-toast'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   activateAdminUser,
+  fetchAdminAllAppointments,
+  fetchAdminAllPayments,
   deleteAdminUser,
   deactivateAdminUser,
   fetchAdminDoctors,
   fetchAdminStats,
   fetchAdminUsers,
+  type AdminAppointmentRow,
   verifyDoctorAsAdmin,
   type AdminDoctorRow,
   type AdminStats,
@@ -73,6 +76,45 @@ function formatMonthKey(key: string): string {
   if (!y || !m) return key
   const d = new Date(Number(y), Number(m) - 1, 1)
   return d.toLocaleDateString('en-LK', { month: 'short', year: 'numeric' })
+}
+
+function formatDateTime(iso?: string): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('en-LK', {
+    timeZone: 'Asia/Colombo',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function appointmentStatusChipClass(status?: string): string {
+  const v = (status ?? '').toUpperCase()
+  if (v === 'COMPLETED') return 'bg-emerald-100 text-emerald-700 ring-emerald-200'
+  if (v === 'CONFIRMED') return 'bg-sky-100 text-sky-700 ring-sky-200'
+  if (v === 'PENDING' || v === 'PENDING_PAYMENT') {
+    return 'bg-amber-100 text-amber-700 ring-amber-200'
+  }
+  if (v === 'CANCELLED') return 'bg-rose-100 text-rose-700 ring-rose-200'
+  return 'bg-slate-100 text-slate-700 ring-slate-200'
+}
+
+function paymentStatusChipClass(status?: string): string {
+  const v = (status ?? '').toLowerCase()
+  if (v.includes('paid')) return 'bg-emerald-100 text-emerald-700 ring-emerald-200'
+  if (v.includes('refund')) return 'bg-violet-100 text-violet-700 ring-violet-200'
+  if (v.includes('pending')) return 'bg-amber-100 text-amber-700 ring-amber-200'
+  if (v.includes('cancel')) return 'bg-rose-100 text-rose-700 ring-rose-200'
+  return 'bg-slate-100 text-slate-700 ring-slate-200'
+}
+
+function approvalStatusChipClass(status?: string): string {
+  const v = (status ?? '').toUpperCase()
+  if (v === 'APPROVED') return 'bg-emerald-100 text-emerald-700 ring-emerald-200'
+  if (v === 'REJECTED') return 'bg-rose-100 text-rose-700 ring-rose-200'
+  return 'bg-amber-100 text-amber-700 ring-amber-200'
 }
 
 function SectionCard({
@@ -119,26 +161,34 @@ export default function AdminPanelPage() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [users, setUsers] = useState<AdminUserRow[]>([])
   const [doctors, setDoctors] = useState<AdminDoctorRow[]>([])
+  const [allAppointments, setAllAppointments] = useState<AdminAppointmentRow[]>([])
+  const [allPayments, setAllPayments] = useState<AdminAppointmentRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [appointmentsPage, setAppointmentsPage] = useState(1)
   const [userQuery, setUserQuery] = useState('')
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<{
     kind: 'activate' | 'deactivate' | 'delete'
     target: AdminUserRow
   } | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
 
   const load = useCallback(async () => {
     if (!token) return
     setLoading(true)
     try {
-      const [s, u, d] = await Promise.all([
+      const [s, u, d, appts, pays] = await Promise.all([
         fetchAdminStats(token),
         fetchAdminUsers(token),
         fetchAdminDoctors(token),
+        fetchAdminAllAppointments(token, 250),
+        fetchAdminAllPayments(token, 250),
       ])
       setStats(s)
       setUsers(u)
       setDoctors(d)
+      setAllAppointments(appts)
+      setAllPayments(pays)
     } catch (e) {
       const msg = isAxiosError(e)
         ? (() => {
@@ -185,6 +235,20 @@ export default function AdminPanelPage() {
         u.role.toLowerCase().includes(q),
     )
   }, [users, userQuery])
+
+  const appointmentsPageSize = 10
+  const appointmentPageCount = Math.max(
+    1,
+    Math.ceil(allAppointments.length / appointmentsPageSize),
+  )
+  const pagedAppointments = useMemo(() => {
+    const start = (appointmentsPage - 1) * appointmentsPageSize
+    return allAppointments.slice(start, start + appointmentsPageSize)
+  }, [allAppointments, appointmentsPage])
+
+  useEffect(() => {
+    setAppointmentsPage(1)
+  }, [allAppointments.length])
 
   const chartData = useMemo(() => {
     if (!stats?.monthlyRevenue?.length) return []
@@ -234,6 +298,34 @@ export default function AdminPanelPage() {
       }).format(new Date()),
     [],
   )
+  const sidebarLinks = [
+    { id: 'admin-doctor-approval', label: 'Doctor Approval', icon: ShieldCheck },
+    { id: 'admin-all-appointments', label: 'All Appointments', icon: CalendarDays },
+    { id: 'admin-all-payments', label: 'All Payments', icon: LayoutDashboard },
+    { id: 'admin-user-management', label: 'User Management', icon: Users },
+    { id: 'admin-revenue-reports', label: 'Financial Reports', icon: PieChartIcon },
+  ] as const
+
+  const scrollToSection = useCallback(
+    (sectionId: string) => {
+      const root = contentRef.current
+      if (!root) return
+      const target = root.querySelector<HTMLElement>(`#${sectionId}`)
+      if (!target) return
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (location.hash !== `#${sectionId}`) {
+        navigate({ pathname: location.pathname, hash: sectionId }, { replace: true })
+      }
+    },
+    [location.hash, location.pathname, navigate],
+  )
+
+  useEffect(() => {
+    const hash = location.hash.replace('#', '').trim()
+    if (!hash) return
+    const id = window.setTimeout(() => scrollToSection(hash), 0)
+    return () => window.clearTimeout(id)
+  }, [location.hash, loading, scrollToSection])
 
   async function onVerify(doctorId: string) {
     if (!token) return
@@ -419,27 +511,23 @@ export default function AdminPanelPage() {
             className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-y-contain px-3 pb-3 pt-3"
             aria-label="Admin"
           >
-            <a
-              href="#admin-doctor-approval"
-              className={`${dashboardNavRow} ${dashboardNavClassOnWhite(activeSidebarId === 'admin-doctor-approval')}`}
-            >
-              <ShieldCheck {...iconProps} aria-hidden />
-              Doctor Approval
-            </a>
-            <a
-              href="#admin-user-management"
-              className={`${dashboardNavRow} ${dashboardNavClassOnWhite(activeSidebarId === 'admin-user-management')}`}
-            >
-              <Users {...iconProps} aria-hidden />
-              User Management
-            </a>
-            <a
-              href="#admin-revenue-reports"
-              className={`${dashboardNavRow} ${dashboardNavClassOnWhite(activeSidebarId === 'admin-revenue-reports')}`}
-            >
-              <PieChartIcon {...iconProps} aria-hidden />
-              Financial Reports
-            </a>
+            {sidebarLinks.map((item) => {
+              const Icon = item.icon
+              return (
+                <a
+                  key={item.id}
+                  href={`#${item.id}`}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    scrollToSection(item.id)
+                  }}
+                  className={`${dashboardNavRow} ${dashboardNavClassOnWhite(activeSidebarId === item.id)}`}
+                >
+                  <Icon {...iconProps} aria-hidden />
+                  {item.label}
+                </a>
+              )
+            })}
             <div className="mt-3 border-t border-sky-100/90 pt-3 md:hidden">
               <a href="/" className={`${dashboardNavRow} ${dashboardNavClassOnWhite(false)}`}>
                 <Home {...iconProps} aria-hidden />
@@ -472,7 +560,7 @@ export default function AdminPanelPage() {
           </div>
         </aside>
 
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain">
+        <div ref={contentRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain">
           <main className={`space-y-8 ${shell}`}>
             <header
               id="admin-dashboard-overview"
@@ -576,6 +664,30 @@ export default function AdminPanelPage() {
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-slate-900">Financial reports</p>
                   <p className="text-sm text-slate-500">Revenue distribution and trend</p>
+                </div>
+              </a>
+              <a
+                href="#admin-all-appointments"
+                className="group flex items-center gap-4 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm transition hover:border-sky-200/80"
+              >
+                <div className="flex shrink-0 rounded-xl bg-indigo-100 p-3 text-indigo-700">
+                  <CalendarDays className="h-6 w-6" strokeWidth={1.75} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-slate-900">All appointments</p>
+                  <p className="text-sm text-slate-500">System-wide booking history</p>
+                </div>
+              </a>
+              <a
+                href="#admin-all-payments"
+                className="group flex items-center gap-4 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm transition hover:border-sky-200/80"
+              >
+                <div className="flex shrink-0 rounded-xl bg-emerald-100 p-3 text-emerald-700">
+                  <TrendingUp className="h-6 w-6" strokeWidth={1.75} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-slate-900">All payments</p>
+                  <p className="text-sm text-slate-500">Paid and refund-pending records</p>
                 </div>
               </a>
             </section>
@@ -820,6 +932,211 @@ export default function AdminPanelPage() {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
+
+            <SectionCard id="admin-all-appointments">
+              <div className="mb-4 flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+                  <CalendarDays className="h-5 w-5" aria-hidden />
+                </span>
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">All appointments</h2>
+                  <p className="text-xs text-slate-500">Latest platform appointments across all doctors and patients.</p>
+                </div>
+              </div>
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full min-w-[920px] text-left text-sm">
+                  <thead className="bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Doctor</th>
+                      <th className="px-4 py-3">Patient</th>
+                      <th className="px-4 py-3">Date/Time</th>
+                      <th className="px-4 py-3">Approval</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Payment</th>
+                      <th className="px-4 py-3 text-right">Fee</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {allAppointments.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
+                          No appointments found.
+                        </td>
+                      </tr>
+                    ) : (
+                      pagedAppointments.map((a) => (
+                        <tr key={a.id} className="bg-white transition hover:bg-sky-50/40">
+                          <td className="px-4 py-3 text-slate-700">
+                            <div className="font-medium text-slate-900">{a.doctorName || '—'}</div>
+                            <div className="text-xs text-slate-500">{a.doctorSpecialty || 'General'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-slate-700">
+                            <div className="font-medium text-slate-900">{a.patientName || '—'}</div>
+                            <div className="text-xs text-slate-500">{a.patientEmail || '—'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">
+                            <div className="font-medium text-slate-800">{a.appointmentDateKey}</div>
+                            <div className="text-xs text-slate-500">
+                              {a.startTime} - {a.endTime}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${approvalStatusChipClass(
+                                a.doctorApprovalStatus,
+                              )}`}
+                            >
+                              {a.doctorApprovalStatus || 'PENDING'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${appointmentStatusChipClass(
+                                a.status,
+                              )}`}
+                            >
+                              {a.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${paymentStatusChipClass(
+                                a.paymentStatus,
+                              )}`}
+                            >
+                              {a.paymentStatus}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                            {lkr.format(Number(a.consultationFee ?? 0))}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {allAppointments.length > appointmentsPageSize ? (
+                <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs text-slate-600">
+                    Showing{' '}
+                    <span className="font-semibold text-slate-800">
+                      {(appointmentsPage - 1) * appointmentsPageSize + 1}
+                    </span>{' '}
+                    -{' '}
+                    <span className="font-semibold text-slate-800">
+                      {Math.min(
+                        appointmentsPage * appointmentsPageSize,
+                        allAppointments.length,
+                      )}
+                    </span>{' '}
+                    of{' '}
+                    <span className="font-semibold text-slate-800">
+                      {allAppointments.length}
+                    </span>
+                  </p>
+                  <div className="inline-flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={appointmentsPage <= 1}
+                      onClick={() =>
+                        setAppointmentsPage((p) => Math.max(1, p - 1))
+                      }
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Prev
+                    </button>
+                    <span className="text-xs font-semibold text-slate-600">
+                      Page {appointmentsPage} / {appointmentPageCount}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={appointmentsPage >= appointmentPageCount}
+                      onClick={() =>
+                        setAppointmentsPage((p) =>
+                          Math.min(appointmentPageCount, p + 1),
+                        )
+                      }
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </SectionCard>
+
+            <SectionCard id="admin-all-payments">
+              <div className="mb-4 flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                  <TrendingUp className="h-5 w-5" aria-hidden />
+                </span>
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">All payments</h2>
+                  <p className="text-xs text-slate-500">Completed and refund-pending payment rows.</p>
+                </div>
+              </div>
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full min-w-[900px] text-left text-sm">
+                  <thead className="bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Patient</th>
+                      <th className="px-4 py-3">Doctor</th>
+                      <th className="px-4 py-3">Payment Status</th>
+                      <th className="px-4 py-3">Appointment Status</th>
+                      <th className="px-4 py-3">Created At</th>
+                      <th className="px-4 py-3 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {allPayments.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                          No payment records found.
+                        </td>
+                      </tr>
+                    ) : (
+                      allPayments.map((p) => (
+                        <tr key={p.id} className="bg-white transition hover:bg-emerald-50/40">
+                          <td className="px-4 py-3 text-slate-700">
+                            <div className="font-medium text-slate-900">
+                              {p.patientName || p.patientEmail || '—'}
+                            </div>
+                            <div className="text-xs text-slate-500">{p.patientEmail || '—'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-slate-700">
+                            <div className="font-medium text-slate-900">{p.doctorName || '—'}</div>
+                            <div className="text-xs text-slate-500">{p.doctorSpecialty || 'General'}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${paymentStatusChipClass(
+                                p.paymentStatus,
+                              )}`}
+                            >
+                              {p.paymentStatus}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${appointmentStatusChipClass(
+                                p.status,
+                              )}`}
+                            >
+                              {p.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">{formatDateTime(p.createdAt)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                            {lkr.format(Number(p.consultationFee ?? 0))}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

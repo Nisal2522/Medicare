@@ -118,6 +118,48 @@ export declare class AppointmentsService implements OnModuleInit {
             revenue: number;
         }[];
     }>;
+    listAllForAdmin(limitRaw?: number): Promise<{
+        id: string;
+        doctorId: string;
+        doctorName: string;
+        doctorSpecialty: string | undefined;
+        patientId: string | undefined;
+        patientEmail: string;
+        patientName: string;
+        patientPhone: string | undefined;
+        doctorPhone: string | undefined;
+        doctorEmail: string | undefined;
+        appointmentDateKey: string;
+        day: string;
+        startTime: string;
+        endTime: string;
+        consultationFee: number;
+        status: string;
+        paymentStatus: string;
+        doctorApprovalStatus: DoctorApprovalStatus;
+        createdAt: string | undefined;
+    }[]>;
+    listPaymentsForAdmin(limitRaw?: number): Promise<{
+        id: string;
+        doctorId: string;
+        doctorName: string;
+        doctorSpecialty: string | undefined;
+        patientId: string | undefined;
+        patientEmail: string;
+        patientName: string;
+        patientPhone: string | undefined;
+        doctorPhone: string | undefined;
+        doctorEmail: string | undefined;
+        appointmentDateKey: string;
+        day: string;
+        startTime: string;
+        endTime: string;
+        consultationFee: number;
+        status: string;
+        paymentStatus: string;
+        doctorApprovalStatus: DoctorApprovalStatus;
+        createdAt: string | undefined;
+    }[]>;
     getPaymentPreviewForCheckout(id: string): Promise<{
         appointmentId: string;
         amountMinor: number;

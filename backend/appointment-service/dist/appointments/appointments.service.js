@@ -466,6 +466,31 @@ let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
         }));
         return { totalAppointments, totalRevenue, monthlyRevenue };
     }
+    async listAllForAdmin(limitRaw) {
+        const limit = Math.min(500, Math.max(1, limitRaw ?? 200));
+        const rows = await this.appointmentModel
+            .find({})
+            .sort({ appointmentDateKey: -1, startTime: -1, createdAt: -1 })
+            .limit(limit)
+            .lean()
+            .exec();
+        return rows.map((r) => this.mapRow(r));
+    }
+    async listPaymentsForAdmin(limitRaw) {
+        const limit = Math.min(500, Math.max(1, limitRaw ?? 200));
+        const rows = await this.appointmentModel
+            .find({
+            $or: [
+                { paymentStatus: 'Paid' },
+                { paymentStatus: 'Cancelled (refund pending)' },
+            ],
+        })
+            .sort({ updatedAt: -1, appointmentDateKey: -1, createdAt: -1 })
+            .limit(limit)
+            .lean()
+            .exec();
+        return rows.map((r) => this.mapRow(r));
+    }
     async getPaymentPreviewForCheckout(id) {
         if (!mongoose_2.Types.ObjectId.isValid(id)) {
             throw new common_1.BadRequestException('Invalid appointment id');

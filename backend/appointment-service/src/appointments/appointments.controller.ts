@@ -119,4 +119,18 @@ export class AppointmentsController {
   platformSummary() {
     return this.appointments.getPlatformSummary();
   }
+
+  @Get('admin/all')
+  @UseGuards(AuthGuard('jwt'), AdminRoleGuard)
+  listAllForAdmin(@Query('limit') limitRaw?: string) {
+    const limit = limitRaw ? Number.parseInt(limitRaw, 10) : undefined;
+    return this.appointments.listAllForAdmin(limit);
+  }
+
+  @Get('admin/payments')
+  @UseGuards(AuthGuard('jwt'), AdminRoleGuard)
+  listPaymentsForAdmin(@Query('limit') limitRaw?: string) {
+    const limit = limitRaw ? Number.parseInt(limitRaw, 10) : undefined;
+    return this.appointments.listPaymentsForAdmin(limit);
+  }
 }

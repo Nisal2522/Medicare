@@ -112,4 +112,46 @@ export declare class AppointmentsController {
             revenue: number;
         }[];
     }>;
+    listAllForAdmin(limitRaw?: string): Promise<{
+        id: string;
+        doctorId: string;
+        doctorName: string;
+        doctorSpecialty: string | undefined;
+        patientId: string | undefined;
+        patientEmail: string;
+        patientName: string;
+        patientPhone: string | undefined;
+        doctorPhone: string | undefined;
+        doctorEmail: string | undefined;
+        appointmentDateKey: string;
+        day: string;
+        startTime: string;
+        endTime: string;
+        consultationFee: number;
+        status: string;
+        paymentStatus: string;
+        doctorApprovalStatus: import("./appointment.schema").DoctorApprovalStatus;
+        createdAt: string | undefined;
+    }[]>;
+    listPaymentsForAdmin(limitRaw?: string): Promise<{
+        id: string;
+        doctorId: string;
+        doctorName: string;
+        doctorSpecialty: string | undefined;
+        patientId: string | undefined;
+        patientEmail: string;
+        patientName: string;
+        patientPhone: string | undefined;
+        doctorPhone: string | undefined;
+        doctorEmail: string | undefined;
+        appointmentDateKey: string;
+        day: string;
+        startTime: string;
+        endTime: string;
+        consultationFee: number;
+        status: string;
+        paymentStatus: string;
+        doctorApprovalStatus: import("./appointment.schema").DoctorApprovalStatus;
+        createdAt: string | undefined;
+    }[]>;
 }

@@ -1,5 +1,6 @@
 import api from './axios'
 import { doctorApi } from './doctorApi'
+import { appointmentApi, type MyAppointmentRow } from './appointmentApi'
 
 export type AdminUserRow = {
   id: string
@@ -27,6 +28,8 @@ export type AdminDoctorRow = {
   location: string
   createdAt?: string
 }
+
+export type AdminAppointmentRow = MyAppointmentRow
 
 function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}` }
@@ -94,5 +97,33 @@ export async function fetchAdminDoctors(
   const { data } = await doctorApi.get<AdminDoctorRow[]>('/admin/doctors', {
     headers: authHeaders(token),
   })
+  return data
+}
+
+export async function fetchAdminAllAppointments(
+  token: string,
+  limit = 200,
+): Promise<AdminAppointmentRow[]> {
+  const { data } = await appointmentApi.get<AdminAppointmentRow[]>(
+    '/appointments/admin/all',
+    {
+      params: { limit },
+      headers: authHeaders(token),
+    },
+  )
+  return data
+}
+
+export async function fetchAdminAllPayments(
+  token: string,
+  limit = 200,
+): Promise<AdminAppointmentRow[]> {
+  const { data } = await appointmentApi.get<AdminAppointmentRow[]>(
+    '/appointments/admin/payments',
+    {
+      params: { limit },
+      headers: authHeaders(token),
+    },
+  )
   return data
 }

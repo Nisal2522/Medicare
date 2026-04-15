@@ -74,6 +74,14 @@ let AppointmentsController = class AppointmentsController {
     platformSummary() {
         return this.appointments.getPlatformSummary();
     }
+    listAllForAdmin(limitRaw) {
+        const limit = limitRaw ? Number.parseInt(limitRaw, 10) : undefined;
+        return this.appointments.listAllForAdmin(limit);
+    }
+    listPaymentsForAdmin(limitRaw) {
+        const limit = limitRaw ? Number.parseInt(limitRaw, 10) : undefined;
+        return this.appointments.listPaymentsForAdmin(limit);
+    }
 };
 exports.AppointmentsController = AppointmentsController;
 __decorate([
@@ -152,6 +160,22 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], AppointmentsController.prototype, "platformSummary", null);
+__decorate([
+    (0, common_1.Get)('admin/all'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), admin_role_guard_1.AdminRoleGuard),
+    __param(0, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], AppointmentsController.prototype, "listAllForAdmin", null);
+__decorate([
+    (0, common_1.Get)('admin/payments'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), admin_role_guard_1.AdminRoleGuard),
+    __param(0, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], AppointmentsController.prototype, "listPaymentsForAdmin", null);
 exports.AppointmentsController = AppointmentsController = __decorate([
     (0, common_1.Controller)('appointments'),
     __metadata("design:paramtypes", [appointments_service_1.AppointmentsService])
