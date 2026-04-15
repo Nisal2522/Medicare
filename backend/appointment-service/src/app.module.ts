@@ -9,7 +9,7 @@ import { AppointmentsModule } from './appointments/appointments.module';
     MongooseModule.forRoot(
       process.env.MONGO_URI ??
         process.env.MONGODB_URI ??
-        'mongodb://localhost:27017/healthcare-platform',
+        'mongodb://localhost:27017/medismart_appointment',
     ),
     AppointmentsModule,
   ],

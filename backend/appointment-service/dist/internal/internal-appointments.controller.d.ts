@@ -16,6 +16,16 @@ export declare class InternalAppointmentsController {
         patientEmail: string;
         status: string;
     }>;
+    summarySnapshot(id: string): Promise<{
+        appointmentId: string;
+        doctorId: string;
+        appointmentDateKey: string;
+        day: string;
+        startTime: string;
+        endTime: string;
+        status: string;
+        paymentStatus: string;
+    }>;
     confirmPayment(id: string): Promise<{
         ok: boolean;
     }>;

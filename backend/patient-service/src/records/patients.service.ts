@@ -42,6 +42,116 @@ export class PatientsService {
     private readonly config: ConfigService,
   ) {}
 
+  async ensureProfileForRegisteredPatient(
+    userId: string,
+    defaults?: { age?: number; gender?: string },
+  ): Promise<void> {
+    if (!Types.ObjectId.isValid(userId)) return;
+    const patientOid = new Types.ObjectId(userId);
+    await this.profileModel
+      .findOneAndUpdate(
+        { patientId: patientOid },
+        {
+          $setOnInsert: {
+            patientId: patientOid,
+            age: typeof defaults?.age === 'number' ? defaults.age : undefined,
+            gender:
+              typeof defaults?.gender === 'string' ? defaults.gender : undefined,
+          },
+        },
+        { upsert: true, new: false },
+      )
+      .exec();
+  }
+
+  async upsertAppointmentAccessProjection(event: {
+    appointmentId: string;
+    doctorId: string;
+    patientId?: string;
+    status: string;
+    doctorApprovalStatus: string;
+  }): Promise<void> {
+    if (
+      !Types.ObjectId.isValid(event.appointmentId) ||
+      !Types.ObjectId.isValid(event.doctorId) ||
+      !event.patientId ||
+      !Types.ObjectId.isValid(event.patientId)
+    ) {
+      return;
+    }
+    const appointmentOid = new Types.ObjectId(event.appointmentId);
+    await this.appointmentAccessModel
+      .findOneAndUpdate(
+        { _id: appointmentOid },
+        {
+          $setOnInsert: { _id: appointmentOid },
+          $set: {
+            doctorId: new Types.ObjectId(event.doctorId),
+            patientId: new Types.ObjectId(event.patientId),
+            doctorApprovalStatus: event.doctorApprovalStatus || 'PENDING',
+            status: event.status || 'PENDING_PAYMENT',
+          },
+        },
+        { upsert: true, new: false },
+      )
+      .exec();
+  }
+
+  async recordPatientPaymentProjection(event: {
+    appointmentId: string;
+    amountCents: number;
+    currency: string;
+    status: 'paid' | 'failed';
+    description: string;
+    reference?: string;
+  }): Promise<void> {
+    if (!Types.ObjectId.isValid(event.appointmentId)) {
+      return;
+    }
+    const appointmentId = event.appointmentId;
+    let appointment: { patientId: Types.ObjectId } | null =
+      await this.appointmentAccessModel
+      .findById(new Types.ObjectId(appointmentId))
+      .select({ patientId: 1 })
+      .lean()
+      .exec();
+    if (!appointment) {
+      const synced = await this.syncAppointmentProjectionFromSnapshot(appointmentId);
+      if (!synced) return;
+      appointment = synced ? { patientId: synced.patientId } : null;
+    }
+    if (!appointment?.patientId) return;
+
+    const normalizedStatus =
+      event.status === 'paid' ? PaymentStatus.PAID : PaymentStatus.FAILED;
+    const ref = event.reference?.trim() || '';
+    if (ref) {
+      const duplicate = await this.paymentModel
+        .findOne({
+          appointmentId,
+          reference: ref,
+          status: normalizedStatus,
+        })
+        .select({ _id: 1 })
+        .lean()
+        .exec();
+      if (duplicate) return;
+    }
+
+    await this.paymentModel.create({
+      patientId: appointment.patientId,
+      amountCents: Math.max(0, Math.floor(Number(event.amountCents || 0))),
+      currency: (event.currency || 'LKR').toUpperCase(),
+      description: (event.description || `Appointment payment for ${appointmentId}`).slice(
+        0,
+        500,
+      ),
+      status: normalizedStatus,
+      reference: ref,
+      appointmentId,
+    });
+  }
+
   async uploadPatientReport(
     patientId: string,
     file: Express.Multer.File,
@@ -289,6 +399,74 @@ export class PatientsService {
       return !snapshot.patientId || String(snapshot.patientId) === patientId;
     } catch {
       return false;
+    }
+  }
+
+  private async syncAppointmentProjectionFromSnapshot(
+    appointmentId: string,
+  ): Promise<{
+    _id: Types.ObjectId;
+    doctorId: Types.ObjectId;
+    patientId: Types.ObjectId;
+    doctorApprovalStatus: string;
+    status: string;
+  } | null> {
+    const base = this.config.get<string>('APPOINTMENT_SERVICE_URL')?.trim();
+    const key = this.config.get<string>('INTERNAL_SERVICE_KEY')?.trim();
+    if (!base || !key || !Types.ObjectId.isValid(appointmentId)) {
+      return null;
+    }
+    const url = `${base.replace(/\/$/, '')}/internal/appointments/${encodeURIComponent(
+      appointmentId,
+    )}/telecom-snapshot`;
+    try {
+      const res = await fetch(url, {
+        headers: { 'X-Service-Key': key },
+      });
+      if (!res.ok) return null;
+      const snapshot = (await res.json()) as {
+        doctorId: string;
+        patientId?: string;
+        status?: string;
+        doctorApprovalStatus?: string;
+      };
+      if (
+        !snapshot.patientId ||
+        !Types.ObjectId.isValid(snapshot.patientId) ||
+        !Types.ObjectId.isValid(snapshot.doctorId)
+      ) {
+        return null;
+      }
+      const appointmentOid = new Types.ObjectId(appointmentId);
+      await this.appointmentAccessModel
+        .findOneAndUpdate(
+          { _id: appointmentOid },
+          {
+            $setOnInsert: { _id: appointmentOid },
+            $set: {
+              doctorId: new Types.ObjectId(snapshot.doctorId),
+              patientId: new Types.ObjectId(snapshot.patientId),
+              status: snapshot.status ?? 'PENDING_PAYMENT',
+              doctorApprovalStatus:
+                snapshot.doctorApprovalStatus ??
+                this.effectiveDoctorApproval(undefined, snapshot.status),
+            },
+          },
+          { upsert: true, new: false },
+        )
+        .exec();
+      return this.appointmentAccessModel
+        .findById(appointmentOid)
+        .lean()
+        .exec() as Promise<{
+        _id: Types.ObjectId;
+        doctorId: Types.ObjectId;
+        patientId: Types.ObjectId;
+        doctorApprovalStatus: string;
+        status: string;
+      } | null>;
+    } catch {
+      return null;
     }
   }
 

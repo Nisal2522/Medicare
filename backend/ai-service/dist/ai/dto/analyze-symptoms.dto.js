@@ -13,6 +13,8 @@ exports.AnalyzeSymptomsDto = void 0;
 const class_validator_1 = require("class-validator");
 class AnalyzeSymptomsDto {
     symptoms;
+    age;
+    gender;
 }
 exports.AnalyzeSymptomsDto = AnalyzeSymptomsDto;
 __decorate([
@@ -21,4 +23,15 @@ __decorate([
     (0, class_validator_1.MaxLength)(4000),
     __metadata("design:type", String)
 ], AnalyzeSymptomsDto.prototype, "symptoms", void 0);
+__decorate([
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(120),
+    __metadata("design:type", Number)
+], AnalyzeSymptomsDto.prototype, "age", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsIn)(['Male', 'Female']),
+    __metadata("design:type", String)
+], AnalyzeSymptomsDto.prototype, "gender", void 0);
 //# sourceMappingURL=analyze-symptoms.dto.js.map

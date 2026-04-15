@@ -32,7 +32,7 @@ exports.AppModule = AppModule = __decorate([
                 useFactory: (cfg) => {
                     const raw = cfg.get('MONGO_URI')?.trim() ||
                         cfg.get('MONGODB_URI')?.trim() ||
-                        'mongodb://localhost:27017/healthcare-platform';
+                        'mongodb://localhost:27017/medismart_telemedicine';
                     return { uri: stripQuotes(raw) };
                 },
             }),

@@ -48,6 +48,15 @@ exports.AppointmentsModule = AppointmentsModule = __decorate([
                         queueOptions: { durable: true },
                     },
                 },
+                {
+                    name: 'PATIENT_EVENTS_CLIENT',
+                    transport: microservices_1.Transport.RMQ,
+                    options: {
+                        urls: [process.env.RABBITMQ_URL ?? 'amqp://localhost:5672'],
+                        queue: 'patient_events_queue',
+                        queueOptions: { durable: true },
+                    },
+                },
             ]),
         ],
         controllers: [

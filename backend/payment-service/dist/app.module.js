@@ -10,6 +10,7 @@ exports.AppModule = void 0;
 const axios_1 = require("@nestjs/axios");
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const mongoose_1 = require("@nestjs/mongoose");
 const payments_module_1 = require("./payments/payments.module");
 let AppModule = class AppModule {
 };
@@ -19,6 +20,9 @@ exports.AppModule = AppModule = __decorate([
         imports: [
             config_1.ConfigModule.forRoot({ isGlobal: true }),
             axios_1.HttpModule.register({ timeout: 12_000, maxRedirects: 3 }),
+            mongoose_1.MongooseModule.forRoot(process.env.MONGO_URI ??
+                process.env.MONGODB_URI ??
+                'mongodb://localhost:27017/medismart_payment'),
             payments_module_1.PaymentsModule,
         ],
     })

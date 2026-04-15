@@ -18,7 +18,7 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             config_1.ConfigModule.forRoot({ isGlobal: true }),
-            mongoose_1.MongooseModule.forRoot(process.env.MONGO_URI ?? 'mongodb://localhost:27017/healthcare-platform'),
+            mongoose_1.MongooseModule.forRoot(process.env.MONGO_URI ?? 'mongodb://localhost:27017/medismart_auth'),
             auth_module_1.AuthModule,
         ],
     })

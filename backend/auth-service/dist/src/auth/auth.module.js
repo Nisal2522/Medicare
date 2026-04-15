@@ -42,6 +42,15 @@ exports.AuthModule = AuthModule = __decorate([
                         queueOptions: { durable: true },
                     },
                 },
+                {
+                    name: 'PATIENT_EVENTS_CLIENT',
+                    transport: microservices_1.Transport.RMQ,
+                    options: {
+                        urls: [process.env.RABBITMQ_URL ?? 'amqp://localhost:5672'],
+                        queue: 'patient_events_queue',
+                        queueOptions: { durable: true },
+                    },
+                },
             ]),
             jwt_1.JwtModule.register({
                 secret: process.env.JWT_SECRET ?? 'change-me-secret',

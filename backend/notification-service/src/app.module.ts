@@ -24,7 +24,7 @@ import { UserNotificationsController } from './notifications/user-notifications.
     MongooseModule.forRoot(
       process.env.MONGO_URI ??
         process.env.MONGODB_URI ??
-        'mongodb://localhost:27017/healthcare-platform',
+        'mongodb://localhost:27017/medismart_notification',
     ),
     MongooseModule.forFeature([
       { name: AppNotification.name, schema: AppNotificationSchema },

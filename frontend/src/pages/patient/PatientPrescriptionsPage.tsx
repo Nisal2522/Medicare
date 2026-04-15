@@ -32,33 +32,31 @@ function formatDate(iso?: string): string {
 
 export default function PatientPrescriptionsPage() {
   const { user, token } = useAuth()
+  type PrescriptionDetailState = {
+    diagnosis: string
+    symptoms: string
+    clinicalNotes: string
+    specialAdvice: string
+    labTests: string
+    followUpDate?: string
+    medicines: Array<{
+      name: string
+      dosage: string
+      frequency?: string
+      duration: string
+      instructions?: string
+    }>
+    doctorName?: string
+  }
+
   const [rows, setRows] = useState<PatientPrescriptionRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [selected, setSelected] = useState<PatientPrescriptionRow | null>(null)
-  const [detail, setDetail] = useState<ReturnType<typeof buildEmptyDetail> | null>(null)
+  const [detail, setDetail] = useState<PrescriptionDetailState | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
-
-  function buildEmptyDetail() {
-    return {
-      diagnosis: '',
-      symptoms: '',
-      clinicalNotes: '',
-      specialAdvice: '',
-      labTests: '',
-      followUpDate: undefined as string | undefined,
-      medicines: [] as Array<{
-        name: string
-        dosage: string
-        frequency?: string
-        duration: string
-        instructions?: string
-      }>,
-      doctorName: undefined as string | undefined,
-    }
-  }
 
   const openDetails = async (row: PatientPrescriptionRow) => {
     if (!token) return

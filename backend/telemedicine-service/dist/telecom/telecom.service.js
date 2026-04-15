@@ -18,13 +18,13 @@ const config_1 = require("@nestjs/config");
 const mongoose_1 = require("@nestjs/mongoose");
 const agora_access_token_1 = require("agora-access-token");
 const mongoose_2 = require("mongoose");
-const appointment_schema_1 = require("../appointments/appointment.schema");
+const video_session_schema_1 = require("./video-session.schema");
 const TOKEN_TTL_SECONDS = 3600;
 let TelecomService = class TelecomService {
-    appointmentModel;
+    videoSessionModel;
     config;
-    constructor(appointmentModel, config) {
-        this.appointmentModel = appointmentModel;
+    constructor(videoSessionModel, config) {
+        this.videoSessionModel = videoSessionModel;
         this.config = config;
     }
     async getRtcToken(user, channelName) {
@@ -55,6 +55,7 @@ let TelecomService = class TelecomService {
             throw new common_1.ForbiddenException('The doctor has not approved this visit yet. Join is available after approval.');
         }
         this.assertParticipant(user, appt);
+        await this.upsertVideoSession(appointmentId, appt);
         const uid = this.uidFromSub(user.sub);
         const privilegeExpiredTs = Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS;
         const token = agora_access_token_1.RtcTokenBuilder.buildTokenWithUid(appId, appCertificate, appointmentId, uid, agora_access_token_1.RtcRole.PUBLISHER, privilegeExpiredTs);
@@ -77,17 +78,6 @@ let TelecomService = class TelecomService {
         return 'PENDING';
     }
     async loadAppointmentForTelecom(appointmentId) {
-        const local = await this.appointmentModel.findById(appointmentId).lean().exec();
-        if (local) {
-            const l = local;
-            return {
-                doctorId: l.doctorId,
-                patientId: l.patientId,
-                patientEmail: l.patientEmail,
-                status: l.status ?? '',
-                doctorApprovalStatus: this.effectiveDoctorApproval(l),
-            };
-        }
         return this.fetchAppointmentFromAppointmentService(appointmentId);
     }
     async fetchAppointmentFromAppointmentService(appointmentId) {
@@ -105,6 +95,8 @@ let TelecomService = class TelecomService {
             if (!res.ok)
                 return null;
             const data = (await res.json());
+            if (!data.patientId)
+                return null;
             return {
                 doctorId: data.doctorId,
                 patientId: data.patientId,
@@ -120,7 +112,7 @@ let TelecomService = class TelecomService {
     assertParticipant(user, appt) {
         const email = user.email.toLowerCase();
         if (user.role === 'PATIENT') {
-            const byId = appt.patientId != null && String(appt.patientId) === user.sub;
+            const byId = String(appt.patientId) === user.sub;
             const byEmail = appt.patientEmail === email;
             if (byId || byEmail)
                 return;
@@ -132,6 +124,21 @@ let TelecomService = class TelecomService {
             throw new common_1.ForbiddenException('Not a participant of this appointment');
         }
         throw new common_1.ForbiddenException('Only PATIENT or DOCTOR roles may join a call');
+    }
+    async upsertVideoSession(appointmentId, appt) {
+        const now = new Date();
+        await this.videoSessionModel.updateOne({ roomName: appointmentId }, {
+            $setOnInsert: {
+                roomName: appointmentId,
+                appointmentId,
+                startedAt: now,
+            },
+            $set: {
+                doctorId: String(appt.doctorId),
+                patientId: String(appt.patientId),
+                status: 'ACTIVE',
+            },
+        }, { upsert: true });
     }
     uidFromSub(sub) {
         let h = 2166136261;
@@ -146,7 +153,7 @@ let TelecomService = class TelecomService {
 exports.TelecomService = TelecomService;
 exports.TelecomService = TelecomService = __decorate([
     (0, common_1.Injectable)(),
-    __param(0, (0, mongoose_1.InjectModel)(appointment_schema_1.AppointmentRef.name)),
+    __param(0, (0, mongoose_1.InjectModel)(video_session_schema_1.VideoSession.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
         config_1.ConfigService])
 ], TelecomService);

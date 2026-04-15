@@ -15,6 +15,18 @@ export type SymptomAnalysisResponse = {
   disclaimer: string
 }
 
+export type SymptomHistoryRow = {
+  id: string
+  symptoms: string
+  age: number
+  gender: 'Male' | 'Female'
+  summary: string
+  preliminaryCondition: string
+  recommendedSpecialty: string
+  urgencyLevel: 'Low' | 'Medium' | 'High'
+  createdAt: string | null
+}
+
 function pickTrimmedString(v: unknown): string | undefined {
   if (typeof v !== 'string') {
     return undefined
@@ -65,12 +77,12 @@ export function normalizeSymptomAnalysis(
 }
 
 export async function analyzeSymptoms(
-  symptoms: string,
+  payload: { symptoms: string; age: number; gender: 'Male' | 'Female' },
   token: string,
 ): Promise<SymptomAnalysisResponse> {
   const { data } = await axios.post<Record<string, unknown>>(
     `${baseURL.replace(/\/$/, '')}/ai/analyze-symptoms`,
-    { symptoms },
+    payload,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -82,4 +94,15 @@ export async function analyzeSymptoms(
   return normalizeSymptomAnalysis(
     data !== null && typeof data === 'object' ? data : {},
   )
+}
+
+export async function fetchSymptomHistory(token: string): Promise<SymptomHistoryRow[]> {
+  const { data } = await axios.get<SymptomHistoryRow[]>(
+    `${baseURL.replace(/\/$/, '')}/ai/analysis-history`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 120_000,
+    },
+  )
+  return Array.isArray(data) ? data : []
 }

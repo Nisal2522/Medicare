@@ -49,9 +49,14 @@ const config_1 = require("@nestjs/config");
 const amqp = __importStar(require("amqplib"));
 const QUEUE = 'payment_success_queue';
 const NOTIFICATION_QUEUE = 'notification_queue';
-let PaymentRmqPublisher = PaymentRmqPublisher_1 = class PaymentRmqPublisher {
+const PATIENT_EVENTS_QUEUE = 'patient_events_queue';
+let PaymentRmqPublisher = class PaymentRmqPublisher {
+    static { PaymentRmqPublisher_1 = this; }
     config;
     logger = new common_1.Logger(PaymentRmqPublisher_1.name);
+    static PAYMENT_SUCCEEDED_V1 = 'PaymentSucceeded.v1';
+    static PAYMENT_FAILED_V1 = 'PaymentFailed.v1';
+    static PATIENT_PAYMENT_RECORDED_V1 = 'PatientPaymentRecorded.v1';
     connection = null;
     channel = null;
     constructor(config) {
@@ -64,6 +69,7 @@ let PaymentRmqPublisher = PaymentRmqPublisher_1 = class PaymentRmqPublisher {
             this.channel = await this.connection.createChannel();
             await this.channel.assertQueue(QUEUE, { durable: true });
             await this.channel.assertQueue(NOTIFICATION_QUEUE, { durable: true });
+            await this.channel.assertQueue(PATIENT_EVENTS_QUEUE, { durable: true });
             this.logger.log(`RabbitMQ payment queue "${QUEUE}" ready`);
         }
         catch (e) {
@@ -93,6 +99,39 @@ let PaymentRmqPublisher = PaymentRmqPublisher_1 = class PaymentRmqPublisher {
         }));
         this.channel.sendToQueue(QUEUE, body, { persistent: true });
         this.logger.log(`Published payment_success for ${appointmentId}`);
+    }
+    publishPaymentSucceededV1(event) {
+        if (!this.channel) {
+            this.logger.error('No RMQ channel — cannot publish PaymentSucceeded.v1');
+            return;
+        }
+        const body = Buffer.from(JSON.stringify({
+            pattern: PaymentRmqPublisher_1.PAYMENT_SUCCEEDED_V1,
+            data: event,
+        }));
+        this.channel.sendToQueue(QUEUE, body, { persistent: true });
+    }
+    publishPaymentFailedV1(event) {
+        if (!this.channel) {
+            this.logger.error('No RMQ channel — cannot publish PaymentFailed.v1');
+            return;
+        }
+        const body = Buffer.from(JSON.stringify({
+            pattern: PaymentRmqPublisher_1.PAYMENT_FAILED_V1,
+            data: event,
+        }));
+        this.channel.sendToQueue(QUEUE, body, { persistent: true });
+    }
+    publishPatientPaymentRecordedV1(event) {
+        if (!this.channel) {
+            this.logger.error('No RMQ channel — cannot publish PatientPaymentRecorded.v1');
+            return;
+        }
+        const body = Buffer.from(JSON.stringify({
+            pattern: PaymentRmqPublisher_1.PATIENT_PAYMENT_RECORDED_V1,
+            data: event,
+        }));
+        this.channel.sendToQueue(PATIENT_EVENTS_QUEUE, body, { persistent: true });
     }
     publishNotification(payload) {
         if (!this.channel) {

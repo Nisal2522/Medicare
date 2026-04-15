@@ -30,6 +30,7 @@ export declare class Appointment {
     status: AppointmentStatus;
     doctorApprovalStatus: DoctorApprovalStatus;
     paymentStatus: string;
+    paymentFailureCount: number;
     slotKey: string;
     slotSeat?: number;
 }
@@ -187,6 +188,15 @@ export declare const AppointmentSchema: import("mongoose").Schema<Appointment, i
         id: string;
     }> | undefined;
     paymentStatus?: import("mongoose").SchemaDefinitionProperty<string, Appointment, import("mongoose").Document<unknown, {}, Appointment, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Appointment & {
+        _id: Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & {
+        id: string;
+    }> | undefined;
+    paymentFailureCount?: import("mongoose").SchemaDefinitionProperty<number, Appointment, import("mongoose").Document<unknown, {}, Appointment, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<Appointment & {
         _id: Types.ObjectId;

@@ -10,10 +10,12 @@ exports.AiModule = void 0;
 const axios_1 = require("@nestjs/axios");
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
+const mongoose_1 = require("@nestjs/mongoose");
 const passport_1 = require("@nestjs/passport");
 const jwt_strategy_1 = require("../auth/jwt.strategy");
 const ai_controller_1 = require("./ai.controller");
 const ai_service_1 = require("./ai.service");
+const symptom_analysis_history_schema_1 = require("./schemas/symptom-analysis-history.schema");
 let AiModule = class AiModule {
 };
 exports.AiModule = AiModule;
@@ -25,6 +27,12 @@ exports.AiModule = AiModule = __decorate([
             jwt_1.JwtModule.register({
                 secret: process.env.JWT_SECRET ?? 'change-me-secret',
             }),
+            mongoose_1.MongooseModule.forFeature([
+                {
+                    name: symptom_analysis_history_schema_1.SymptomAnalysisHistory.name,
+                    schema: symptom_analysis_history_schema_1.SymptomAnalysisHistorySchema,
+                },
+            ]),
         ],
         controllers: [ai_controller_1.AiController],
         providers: [ai_service_1.AiService, jwt_strategy_1.JwtStrategy],

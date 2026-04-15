@@ -17,6 +17,11 @@ export class InternalAppointmentsController {
     return this.appointments.getPaymentPreviewForCheckout(id);
   }
 
+  @Get(':id/summary-snapshot')
+  summarySnapshot(@Param('id') id: string) {
+    return this.appointments.getSummarySnapshot(id);
+  }
+
   @Post(':id/confirm-payment')
   async confirmPayment(@Param('id') id: string) {
     await this.appointments.confirmPaymentSuccess(id);

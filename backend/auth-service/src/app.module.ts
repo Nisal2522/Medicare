@@ -7,7 +7,7 @@ import { AuthModule } from './auth/auth.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRoot(
-      process.env.MONGO_URI ?? 'mongodb://localhost:27017/healthcare-platform',
+      process.env.MONGO_URI ?? 'mongodb://localhost:27017/medismart_auth',
     ),
     AuthModule,
   ],

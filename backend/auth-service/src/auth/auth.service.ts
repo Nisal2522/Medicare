@@ -9,6 +9,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ClientProxy } from '@nestjs/microservices';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'node:crypto';
 import { firstValueFrom } from 'rxjs';
 import { AdminService } from './admin/admin.service';
 import { AuthRepository } from './auth.repository';
@@ -19,12 +20,16 @@ import { Role } from './enums/role.enum';
 
 @Injectable()
 export class AuthService {
+  private static readonly USER_REGISTERED_V1 = 'UserRegistered.v1';
+
   constructor(
     private readonly authRepository: AuthRepository,
     private readonly jwtService: JwtService,
     private readonly adminService: AdminService,
     @Inject('NOTIFICATIONS_CLIENT')
     private readonly notificationsClient: ClientProxy,
+    @Inject('PATIENT_EVENTS_CLIENT')
+    private readonly patientEventsClient: ClientProxy,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -53,6 +58,12 @@ export class AuthService {
     }
 
     void this.emitRegistrationEmail({
+      userId,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+    });
+    void this.emitUserRegisteredEvent({
       userId,
       fullName: user.fullName,
       email: user.email,
@@ -88,6 +99,31 @@ export class AuthService {
       );
     } catch {
       // Registration should still succeed if email delivery is unavailable.
+    }
+  }
+
+  private async emitUserRegisteredEvent(payload: {
+    userId: string;
+    fullName: string;
+    email: string;
+    role: string;
+  }): Promise<void> {
+    // Publish domain events instead of calling patient-service directly.
+    // This keeps auth-service independent and allows eventual consistency.
+    const event = {
+      userId: payload.userId,
+      fullName: payload.fullName,
+      email: payload.email,
+      role: payload.role as 'PATIENT' | 'DOCTOR' | 'ADMIN',
+      occurredAt: new Date().toISOString(),
+      traceId: randomUUID(),
+    };
+    try {
+      await firstValueFrom(
+        this.patientEventsClient.emit(AuthService.USER_REGISTERED_V1, event),
+      );
+    } catch {
+      // User registration must remain available even if async profile sync is down.
     }
   }
 

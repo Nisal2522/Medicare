@@ -57,17 +57,28 @@ const mongoose_2 = require("mongoose");
 const moment = __importStar(require("moment-timezone"));
 const appointment_schema_1 = require("./appointment.schema");
 const COLOMBO = 'Asia/Colombo';
-let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
+let AppointmentsService = class AppointmentsService {
+    static { AppointmentsService_1 = this; }
     appointmentModel;
     http;
     jwt;
     notifications;
+    patientEvents;
     logger = new common_1.Logger(AppointmentsService_1.name);
-    constructor(appointmentModel, http, jwt, notifications) {
+    static APPOINTMENT_PAYMENT_CHANGED_V1 = 'AppointmentPaymentStatusChanged.v1';
+    static APPOINTMENT_UPSERTED_V1 = 'AppointmentUpserted.v1';
+    constructor(appointmentModel, http, jwt, notifications, patientEvents) {
         this.appointmentModel = appointmentModel;
         this.http = http;
         this.jwt = jwt;
         this.notifications = notifications;
+        this.patientEvents = patientEvents;
+    }
+    emitPaymentStatusChanged(event) {
+        this.notifications.emit(AppointmentsService_1.APPOINTMENT_PAYMENT_CHANGED_V1, event);
+    }
+    emitAppointmentUpserted(event) {
+        this.patientEvents.emit(AppointmentsService_1.APPOINTMENT_UPSERTED_V1, event);
     }
     async onModuleInit() {
         await this.ensureSlotIndexes();
@@ -292,6 +303,15 @@ let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
                     slotSeat: seat,
                 });
                 const row = this.mapRow(created);
+                this.emitAppointmentUpserted({
+                    appointmentId: row.id,
+                    doctorId: row.doctorId,
+                    patientId: row.patientId,
+                    status: row.status,
+                    doctorApprovalStatus: row.doctorApprovalStatus,
+                    occurredAt: new Date().toISOString(),
+                    traceId: new mongoose_2.Types.ObjectId().toHexString(),
+                });
                 this.notifications.emit('appointment_created', {
                     patientEmail: row.patientEmail,
                     patientPhone: row.patientPhone,
@@ -536,6 +556,25 @@ let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
             doctorApprovalStatus: this.effectiveDoctorApproval(o),
         };
     }
+    async getSummarySnapshot(id) {
+        if (!mongoose_2.Types.ObjectId.isValid(id)) {
+            throw new common_1.BadRequestException('Invalid appointment id');
+        }
+        const appt = await this.appointmentModel.findById(id).lean().exec();
+        if (!appt) {
+            throw new common_1.NotFoundException('Appointment not found');
+        }
+        return {
+            appointmentId: String(appt._id),
+            doctorId: String(appt.doctorId),
+            appointmentDateKey: appt.appointmentDateKey,
+            day: appt.day,
+            startTime: appt.startTime,
+            endTime: appt.endTime,
+            status: appt.status,
+            paymentStatus: appt.paymentStatus,
+        };
+    }
     async setDoctorApproval(appointmentId, doctorSub, decision) {
         if (!mongoose_2.Types.ObjectId.isValid(appointmentId)) {
             throw new common_1.BadRequestException('Invalid appointment id');
@@ -558,6 +597,15 @@ let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
             appt.doctorApprovalStatus = appointment_schema_1.DoctorApprovalStatus.APPROVED;
             await appt.save();
             const row = this.mapRow(appt);
+            this.emitAppointmentUpserted({
+                appointmentId: row.id,
+                doctorId: row.doctorId,
+                patientId: row.patientId,
+                status: row.status,
+                doctorApprovalStatus: row.doctorApprovalStatus,
+                occurredAt: new Date().toISOString(),
+                traceId: new mongoose_2.Types.ObjectId().toHexString(),
+            });
             this.notifications.emit('appointment_doctor_approved', {
                 patientEmail: row.patientEmail,
                 patientPhone: row.patientPhone,
@@ -574,6 +622,15 @@ let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
                 : 'Cancelled';
         await appt.save();
         const row = this.mapRow(appt);
+        this.emitAppointmentUpserted({
+            appointmentId: row.id,
+            doctorId: row.doctorId,
+            patientId: row.patientId,
+            status: row.status,
+            doctorApprovalStatus: row.doctorApprovalStatus,
+            occurredAt: new Date().toISOString(),
+            traceId: new mongoose_2.Types.ObjectId().toHexString(),
+        });
         return { message: 'Appointment declined and cancelled.', appointment: row };
     }
     async confirmPaymentSuccess(appointmentId) {
@@ -595,9 +652,68 @@ let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
             return;
         }
         const row = this.mapRow(appt);
+        this.emitAppointmentUpserted({
+            appointmentId: row.id,
+            doctorId: row.doctorId,
+            patientId: row.patientId,
+            status: row.status,
+            doctorApprovalStatus: row.doctorApprovalStatus,
+            occurredAt: new Date().toISOString(),
+            traceId: new mongoose_2.Types.ObjectId().toHexString(),
+        });
+        this.emitPaymentStatusChanged({
+            appointmentId: row.id,
+            status: 'PAID',
+            occurredAt: new Date().toISOString(),
+            traceId: new mongoose_2.Types.ObjectId().toHexString(),
+        });
         this.notifications.emit('appointment_payment_success', {
             patientEmail: row.patientEmail,
             appointment: row,
+        });
+    }
+    async markPaymentFailed(event) {
+        if (!mongoose_2.Types.ObjectId.isValid(event.appointmentId)) {
+            return;
+        }
+        const appt = await this.appointmentModel
+            .findOneAndUpdate({
+            _id: new mongoose_2.Types.ObjectId(event.appointmentId),
+            status: appointment_schema_1.AppointmentStatus.PENDING_PAYMENT,
+        }, {
+            $inc: { paymentFailureCount: 1 },
+            $set: { paymentStatus: 'Payment failed' },
+        }, { new: true })
+            .exec();
+        if (!appt)
+            return;
+        if ((appt.paymentFailureCount ?? 0) >= 3) {
+            appt.status = appointment_schema_1.AppointmentStatus.CANCELLED;
+            appt.paymentStatus = 'Cancelled due to repeated payment failures';
+            await appt.save();
+            this.emitPaymentStatusChanged({
+                appointmentId: String(appt._id),
+                status: 'CANCELLED',
+                occurredAt: new Date().toISOString(),
+                traceId: event.traceId,
+            });
+            return;
+        }
+        const row = this.mapRow(appt);
+        this.emitAppointmentUpserted({
+            appointmentId: row.id,
+            doctorId: row.doctorId,
+            patientId: row.patientId,
+            status: row.status,
+            doctorApprovalStatus: row.doctorApprovalStatus,
+            occurredAt: new Date().toISOString(),
+            traceId: event.traceId,
+        });
+        this.emitPaymentStatusChanged({
+            appointmentId: String(appt._id),
+            status: 'FAILED',
+            occurredAt: new Date().toISOString(),
+            traceId: event.traceId,
         });
     }
     async cancelByPatient(appointmentId, patientEmail, authHeader) {
@@ -630,6 +746,19 @@ let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
                 paymentStatus: nextPaymentStatus,
             },
         });
+        const updated = await this.appointmentModel.findById(appt._id).lean().exec();
+        if (updated) {
+            const row = this.mapRow(updated);
+            this.emitAppointmentUpserted({
+                appointmentId: row.id,
+                doctorId: row.doctorId,
+                patientId: row.patientId,
+                status: row.status,
+                doctorApprovalStatus: row.doctorApprovalStatus,
+                occurredAt: new Date().toISOString(),
+                traceId: new mongoose_2.Types.ObjectId().toHexString(),
+            });
+        }
         return { message: 'Appointment cancelled successfully' };
     }
     async findByIdForPrescription(appointmentId, doctorSub) {
@@ -659,6 +788,19 @@ let AppointmentsService = AppointmentsService_1 = class AppointmentsService {
                 paymentStatus: appt.paymentStatus === 'Paid' ? 'Paid' : appt.paymentStatus,
             },
         });
+        const updated = await this.appointmentModel.findById(appt._id).lean().exec();
+        if (updated) {
+            const row = this.mapRow(updated);
+            this.emitAppointmentUpserted({
+                appointmentId: row.id,
+                doctorId: row.doctorId,
+                patientId: row.patientId,
+                status: row.status,
+                doctorApprovalStatus: row.doctorApprovalStatus,
+                occurredAt: new Date().toISOString(),
+                traceId: new mongoose_2.Types.ObjectId().toHexString(),
+            });
+        }
     }
 };
 exports.AppointmentsService = AppointmentsService;
@@ -666,9 +808,11 @@ exports.AppointmentsService = AppointmentsService = AppointmentsService_1 = __de
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(appointment_schema_1.Appointment.name)),
     __param(3, (0, common_1.Inject)('NOTIFICATIONS_CLIENT')),
+    __param(4, (0, common_1.Inject)('PATIENT_EVENTS_CLIENT')),
     __metadata("design:paramtypes", [mongoose_2.Model,
         axios_1.HttpService,
         jwt_1.JwtService,
+        microservices_1.ClientProxy,
         microservices_1.ClientProxy])
 ], AppointmentsService);
 //# sourceMappingURL=appointments.service.js.map

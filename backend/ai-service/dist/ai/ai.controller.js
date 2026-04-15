@@ -23,7 +23,10 @@ let AiController = class AiController {
         this.ai = ai;
     }
     analyze(dto, req) {
-        return this.ai.analyze(req.user, dto.symptoms);
+        return this.ai.analyze(req.user, dto);
+    }
+    listHistory(req) {
+        return this.ai.listHistory(req.user);
     }
 };
 exports.AiController = AiController;
@@ -35,6 +38,13 @@ __decorate([
     __metadata("design:paramtypes", [analyze_symptoms_dto_1.AnalyzeSymptomsDto, Object]),
     __metadata("design:returntype", void 0)
 ], AiController.prototype, "analyze", null);
+__decorate([
+    (0, common_1.Get)('analysis-history'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AiController.prototype, "listHistory", null);
 exports.AiController = AiController = __decorate([
     (0, common_1.Controller)('ai'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),

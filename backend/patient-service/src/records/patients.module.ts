@@ -15,6 +15,7 @@ import {
   PatientPaymentSchema,
 } from './patient-payment.schema';
 import { PatientProfile, PatientProfileSchema } from './patient-profile.schema';
+import { PatientEventsListener } from './patient-events.listener';
 import { PatientsController } from './patients.controller';
 import { PatientsService } from './patients.service';
 
@@ -32,7 +33,7 @@ import { PatientsService } from './patients.service';
       signOptions: { expiresIn: '1d' },
     }),
   ],
-  controllers: [PatientsController],
+  controllers: [PatientsController, PatientEventsListener],
   providers: [
     PatientsService,
     S3Service,

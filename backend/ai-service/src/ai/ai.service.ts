@@ -6,8 +6,15 @@ import {
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { firstValueFrom } from 'rxjs';
 import type { JwtPayload } from '../auth/jwt.strategy';
+import { AnalyzeSymptomsDto } from './dto/analyze-symptoms.dto';
+import {
+  SymptomAnalysisHistory,
+  type SymptomAnalysisHistoryDocument,
+} from './schemas/symptom-analysis-history.schema';
 
 /** Strip optional ```json fences and parse model output as JSON. */
 function parseModelJsonObject(raw: string): Record<string, unknown> | null {
@@ -143,9 +150,16 @@ const GROQ_REQUEST_TIMEOUT_MS = 90_000;
 export class AiService {
   private readonly log = new Logger(AiService.name);
 
-  constructor(private readonly http: HttpService) {}
+  constructor(
+    private readonly http: HttpService,
+    @InjectModel(SymptomAnalysisHistory.name)
+    private readonly historyModel: Model<SymptomAnalysisHistoryDocument>,
+  ) {}
 
-  analyze(user: JwtPayload, symptoms: string): Promise<SymptomAnalysisResult> {
+  async analyze(
+    user: JwtPayload,
+    payload: AnalyzeSymptomsDto,
+  ): Promise<SymptomAnalysisResult> {
     if (user.role !== 'PATIENT') {
       throw new UnauthorizedException('Only patients can use symptom analysis');
     }
@@ -155,12 +169,49 @@ export class AiService {
         'Symptom analysis is not configured (missing GROQ_API_KEY).',
       );
     }
-    return this.callGroq(symptoms, groqKey);
+    const result = await this.callGroq(payload, groqKey);
+    await this.historyModel.create({
+      userId: user.sub,
+      userEmail: user.email.toLowerCase(),
+      symptoms: payload.symptoms.trim(),
+      age: payload.age,
+      gender: payload.gender,
+      summary: result.summary,
+      preliminaryCondition: result.preliminaryCondition,
+      detailedAnalysis: result.detailedAnalysis,
+      recommendedSpecialty: result.recommendedSpecialty,
+      urgencyLevel: result.urgencyLevel,
+      disclaimer: result.disclaimer,
+    });
+    return result;
+  }
+
+  async listHistory(user: JwtPayload) {
+    if (user.role !== 'PATIENT') {
+      throw new UnauthorizedException('Only patients can view symptom history');
+    }
+    const rows = await this.historyModel
+      .find({ userId: user.sub })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean()
+      .exec();
+    return rows.map((row) => ({
+      id: String(row._id),
+      symptoms: row.symptoms,
+      age: row.age,
+      gender: row.gender,
+      summary: row.summary,
+      preliminaryCondition: row.preliminaryCondition,
+      recommendedSpecialty: row.recommendedSpecialty,
+      urgencyLevel: row.urgencyLevel,
+      createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+    }));
   }
 
   /** Groq OpenAI-compatible chat completions. */
   private async callGroq(
-    symptoms: string,
+    payload: AnalyzeSymptomsDto,
     apiKey: string,
   ): Promise<SymptomAnalysisResult> {
     const base = (process.env.GROQ_BASE_URL ?? DEFAULT_GROQ_BASE).replace(
@@ -172,7 +223,7 @@ export class AiService {
       (model, idx, arr): model is string => !!model && arr.indexOf(model) === idx,
     );
     const url = `${base}/chat/completions`;
-    const userText = `Patient symptom description:\n${symptoms}`;
+    const userText = `Patient profile:\n- Age: ${payload.age}\n- Gender: ${payload.gender}\n\nPatient symptom description:\n${payload.symptoms}`;
 
     const messages = [
       { role: 'system' as const, content: SYSTEM_PROMPT },

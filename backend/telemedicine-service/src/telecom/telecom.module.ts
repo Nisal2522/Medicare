@@ -4,14 +4,14 @@ import { JwtModule } from '@nestjs/jwt';
 import { MongooseModule } from '@nestjs/mongoose';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from '../auth/jwt.strategy';
-import { AppointmentRef, AppointmentRefSchema } from '../appointments/appointment.schema';
 import { TelecomController } from './telecom.controller';
 import { TelecomService } from './telecom.service';
+import { VideoSession, VideoSessionSchema } from './video-session.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: AppointmentRef.name, schema: AppointmentRefSchema },
+      { name: VideoSession.name, schema: VideoSessionSchema },
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
