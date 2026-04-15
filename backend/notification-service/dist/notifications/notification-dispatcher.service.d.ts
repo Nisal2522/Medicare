@@ -22,6 +22,7 @@ export declare class NotificationDispatcherService {
     private readonly logger;
     constructor(mail: MailService, sms: SmsService, realtime: RealtimeNotificationService);
     onUserRegistered(payload: {
+        userId?: string;
         email: string;
         fullName: string;
         role: string;

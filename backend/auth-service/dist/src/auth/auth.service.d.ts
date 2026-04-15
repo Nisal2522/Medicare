@@ -1,4 +1,5 @@
 import { JwtService } from '@nestjs/jwt';
+import { ClientProxy } from '@nestjs/microservices';
 import { AdminService } from './admin/admin.service';
 import { AuthRepository } from './auth.repository';
 import { LoginDto } from './dto/login.dto';
@@ -9,7 +10,8 @@ export declare class AuthService {
     private readonly authRepository;
     private readonly jwtService;
     private readonly adminService;
-    constructor(authRepository: AuthRepository, jwtService: JwtService, adminService: AdminService);
+    private readonly notificationsClient;
+    constructor(authRepository: AuthRepository, jwtService: JwtService, adminService: AdminService, notificationsClient: ClientProxy);
     register(dto: RegisterDto): Promise<{
         message: string;
         user: {
@@ -20,6 +22,7 @@ export declare class AuthService {
             phone: string;
         };
     }>;
+    private emitRegistrationEmail;
     getMe(userId: string): Promise<{
         id: string;
         fullName: string;

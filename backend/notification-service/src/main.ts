@@ -7,6 +7,7 @@ async function bootstrap() {
   const url = process.env.RABBITMQ_URL ?? 'amqp://localhost:5672';
   const port = Number(process.env.PORT ?? 3008);
   const app = await NestFactory.create(AppModule);
+  app.enableCors();
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {

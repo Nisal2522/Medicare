@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthModule = void 0;
 const axios_1 = require("@nestjs/axios");
 const common_1 = require("@nestjs/common");
+const microservices_1 = require("@nestjs/microservices");
 const jwt_1 = require("@nestjs/jwt");
 const mongoose_1 = require("@nestjs/mongoose");
 const passport_1 = require("@nestjs/passport");
@@ -31,6 +32,17 @@ exports.AuthModule = AuthModule = __decorate([
         imports: [
             axios_1.HttpModule.register({ timeout: 15_000, maxRedirects: 3 }),
             passport_1.PassportModule.register({ defaultStrategy: 'jwt' }),
+            microservices_1.ClientsModule.register([
+                {
+                    name: 'NOTIFICATIONS_CLIENT',
+                    transport: microservices_1.Transport.RMQ,
+                    options: {
+                        urls: [process.env.RABBITMQ_URL ?? 'amqp://localhost:5672'],
+                        queue: 'notifications_queue',
+                        queueOptions: { durable: true },
+                    },
+                },
+            ]),
             jwt_1.JwtModule.register({
                 secret: process.env.JWT_SECRET ?? 'change-me-secret',
                 signOptions: { expiresIn: '1d' },

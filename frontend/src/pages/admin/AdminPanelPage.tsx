@@ -165,6 +165,7 @@ export default function AdminPanelPage() {
   const [allPayments, setAllPayments] = useState<AdminAppointmentRow[]>([])
   const [loading, setLoading] = useState(true)
   const [appointmentsPage, setAppointmentsPage] = useState(1)
+  const [paymentsPage, setPaymentsPage] = useState(1)
   const [userQuery, setUserQuery] = useState('')
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<{
@@ -245,10 +246,22 @@ export default function AdminPanelPage() {
     const start = (appointmentsPage - 1) * appointmentsPageSize
     return allAppointments.slice(start, start + appointmentsPageSize)
   }, [allAppointments, appointmentsPage])
+  const paymentsPageSize = 10
+  const paymentsPageCount = Math.max(
+    1,
+    Math.ceil(allPayments.length / paymentsPageSize),
+  )
+  const pagedPayments = useMemo(() => {
+    const start = (paymentsPage - 1) * paymentsPageSize
+    return allPayments.slice(start, start + paymentsPageSize)
+  }, [allPayments, paymentsPage])
 
   useEffect(() => {
     setAppointmentsPage(1)
   }, [allAppointments.length])
+  useEffect(() => {
+    setPaymentsPage(1)
+  }, [allPayments.length])
 
   const chartData = useMemo(() => {
     if (!stats?.monthlyRevenue?.length) return []
@@ -1093,14 +1106,14 @@ export default function AdminPanelPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {allPayments.length === 0 ? (
+                    {pagedPayments.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                           No payment records found.
                         </td>
                       </tr>
                     ) : (
-                      allPayments.map((p) => (
+                      pagedPayments.map((p) => (
                         <tr key={p.id} className="bg-white transition hover:bg-emerald-50/40">
                           <td className="px-4 py-3 text-slate-700">
                             <div className="font-medium text-slate-900">
@@ -1140,6 +1153,49 @@ export default function AdminPanelPage() {
                   </tbody>
                 </table>
               </div>
+              {allPayments.length > 0 ? (
+                <div className="mt-3 flex flex-col gap-2 rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+                  <p>
+                    Showing{' '}
+                    <span className="font-semibold text-slate-900">
+                      {(paymentsPage - 1) * paymentsPageSize + 1}
+                    </span>{' '}
+                    to{' '}
+                    <span className="font-semibold text-slate-900">
+                      {Math.min(paymentsPage * paymentsPageSize, allPayments.length)}
+                    </span>{' '}
+                    of{' '}
+                    <span className="font-semibold text-slate-900">
+                      {allPayments.length}
+                    </span>
+                  </p>
+                  <div className="inline-flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={paymentsPage <= 1}
+                      onClick={() => setPaymentsPage((p) => Math.max(1, p - 1))}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Prev
+                    </button>
+                    <span className="text-xs font-semibold text-slate-600">
+                      Page {paymentsPage} / {paymentsPageCount}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={paymentsPage >= paymentsPageCount}
+                      onClick={() =>
+                        setPaymentsPage((p) =>
+                          Math.min(paymentsPageCount, p + 1),
+                        )
+                      }
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </SectionCard>
 
             <SectionCard>

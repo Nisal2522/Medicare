@@ -12,6 +12,7 @@ export class NotificationsListener {
   async onUserRegistered(
     @Payload()
     data: {
+      userId?: string;
       email: string;
       fullName: string;
       role: string;

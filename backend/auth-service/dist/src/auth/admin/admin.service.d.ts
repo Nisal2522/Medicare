@@ -17,6 +17,9 @@ export declare class AdminService {
     deactivateUser(actorSub: string, targetId: string): Promise<{
         message: string;
     }>;
+    deleteUser(actorSub: string, targetId: string): Promise<{
+        message: string;
+    }>;
     activateUser(actorSub: string, targetId: string): Promise<{
         message: string;
     }>;

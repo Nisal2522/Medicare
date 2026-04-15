@@ -41,11 +41,16 @@ var __importStar = (this && this.__importStar) || (function () {
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
+const microservices_1 = require("@nestjs/microservices");
 const bcrypt = __importStar(require("bcrypt"));
+const rxjs_1 = require("rxjs");
 const admin_service_1 = require("./admin/admin.service");
 const auth_repository_1 = require("./auth.repository");
 const role_enum_1 = require("./enums/role.enum");
@@ -53,10 +58,12 @@ let AuthService = class AuthService {
     authRepository;
     jwtService;
     adminService;
-    constructor(authRepository, jwtService, adminService) {
+    notificationsClient;
+    constructor(authRepository, jwtService, adminService, notificationsClient) {
         this.authRepository = authRepository;
         this.jwtService = jwtService;
         this.adminService = adminService;
+        this.notificationsClient = notificationsClient;
     }
     async register(dto) {
         const existingUser = await this.authRepository.findByEmail(dto.email);
@@ -81,6 +88,12 @@ let AuthService = class AuthService {
                 throw e;
             }
         }
+        void this.emitRegistrationEmail({
+            userId,
+            fullName: user.fullName,
+            email: user.email,
+            role: user.role,
+        });
         return {
             message: 'User registered successfully',
             user: {
@@ -91,6 +104,18 @@ let AuthService = class AuthService {
                 phone: user.phone ?? '',
             },
         };
+    }
+    async emitRegistrationEmail(payload) {
+        try {
+            await (0, rxjs_1.firstValueFrom)(this.notificationsClient.emit('user_registered', {
+                userId: payload.userId,
+                email: payload.email,
+                fullName: payload.fullName,
+                role: payload.role,
+            }));
+        }
+        catch {
+        }
     }
     async getMe(userId) {
         const user = await this.authRepository.findById(userId);
@@ -184,8 +209,10 @@ let AuthService = class AuthService {
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
+    __param(3, (0, common_1.Inject)('NOTIFICATIONS_CLIENT')),
     __metadata("design:paramtypes", [auth_repository_1.AuthRepository,
         jwt_1.JwtService,
-        admin_service_1.AdminService])
+        admin_service_1.AdminService,
+        microservices_1.ClientProxy])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

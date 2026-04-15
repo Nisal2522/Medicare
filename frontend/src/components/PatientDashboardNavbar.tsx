@@ -17,13 +17,20 @@ type Props = {
 }
 
 const notificationButtonClass =
-  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sky-200/90 text-sky-700 transition hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50'
+  'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sky-200/90 text-sky-700 transition hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50'
 
 function NotificationsButton({ className = '' }: { className?: string }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement | null>(null)
-  const { notifications, unreadCount, markAllRead, clearNotifications } =
-    useNotifications()
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    markAllRead,
+    dismissNotification,
+    clearReadNotifications,
+    clearNotifications,
+  } = useNotifications()
 
   useEffect(() => {
     if (!open) return
@@ -39,9 +46,16 @@ function NotificationsButton({ className = '' }: { className?: string }) {
 
   useEffect(() => {
     if (open && unreadCount > 0) {
-      markAllRead()
+      void markAllRead()
     }
   }, [open, unreadCount, markAllRead])
+
+  useEffect(() => {
+    if (open) return
+    if (!notifications.length) return
+    // User has viewed notifications; clear the seen rows.
+    void clearReadNotifications()
+  }, [open, notifications.length, clearReadNotifications])
 
   const items = useMemo(() => notifications.slice(0, 8), [notifications])
 
@@ -63,29 +77,59 @@ function NotificationsButton({ className = '' }: { className?: string }) {
 
       {open ? (
         <div className="absolute right-0 z-[70] mt-2 w-80 max-w-[90vw] overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-2xl">
-          <div className="flex items-center justify-between border-b border-sky-100 px-3 py-2">
-            <p className="text-sm font-semibold text-slate-900">Notifications</p>
+          <div className="border-b border-sky-100 bg-gradient-to-r from-sky-50 via-white to-cyan-50 px-3 py-2.5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-900">Notifications</p>
+              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">
+                {items.length} items
+              </span>
+            </div>
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              Opened notifications auto-clear after viewing.
+            </p>
+          </div>
+          <div className="flex items-center justify-end border-b border-sky-100 px-3 py-2">
             <button
               type="button"
               className="text-xs font-semibold text-sky-700 hover:underline"
-              onClick={clearNotifications}
+              onClick={() => void clearNotifications()}
             >
-              Clear
+              Clear all
             </button>
           </div>
+          {loading ? (
+            <p className="px-3 py-2 text-xs text-slate-500">Syncing notifications...</p>
+          ) : null}
           {items.length === 0 ? (
-            <p className="px-3 py-6 text-center text-sm text-slate-500">
-              No notifications yet.
-            </p>
+            <div className="px-3 py-8 text-center">
+              <Bell className="mx-auto h-6 w-6 text-slate-300" aria-hidden />
+              <p className="mt-2 text-sm font-medium text-slate-600">
+                No notifications
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                New updates will appear here in real-time.
+              </p>
+            </div>
           ) : (
             <ul className="max-h-80 overflow-y-auto">
               {items.map((n) => (
-                <li key={n.id} className="border-b border-slate-100 px-3 py-2 last:border-b-0">
-                  <p className="text-xs font-semibold text-slate-900">{n.title}</p>
-                  <p className="mt-0.5 text-xs text-slate-600">{n.message || '—'}</p>
-                  <p className="mt-1 text-[10px] text-slate-400">
-                    {new Date(n.ts).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })}
-                  </p>
+                <li key={n.id} className="border-b border-slate-100 px-3 py-2.5 last:border-b-0">
+                  <button
+                    type="button"
+                    onClick={() => void dismissNotification(n.id)}
+                    className="w-full rounded-lg px-1 text-left transition hover:bg-sky-50"
+                    title="Mark as seen and remove"
+                  >
+                    <p className="text-xs font-semibold text-slate-900">{n.title}</p>
+                    <p className="mt-0.5 text-xs text-slate-600">
+                      {n.message || '—'}
+                    </p>
+                    <p className="mt-1 text-[10px] text-slate-400">
+                      {new Date(n.ts).toLocaleString('en-LK', {
+                        timeZone: 'Asia/Colombo',
+                      })}
+                    </p>
+                  </button>
                 </li>
               ))}
             </ul>

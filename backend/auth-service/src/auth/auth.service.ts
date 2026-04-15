@@ -53,6 +53,7 @@ export class AuthService {
     }
 
     void this.emitRegistrationEmail({
+      userId,
       fullName: user.fullName,
       email: user.email,
       role: user.role,
@@ -71,6 +72,7 @@ export class AuthService {
   }
 
   private async emitRegistrationEmail(payload: {
+    userId: string;
     fullName: string;
     email: string;
     role: string;
@@ -78,6 +80,7 @@ export class AuthService {
     try {
       await firstValueFrom(
         this.notificationsClient.emit('user_registered', {
+          userId: payload.userId,
           email: payload.email,
           fullName: payload.fullName,
           role: payload.role,

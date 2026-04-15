@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const mongoose_1 = require("@nestjs/mongoose");
 const notifications_listener_1 = require("./notifications/notifications.listener");
 const notification_dispatcher_service_1 = require("./notifications/notification-dispatcher.service");
 const mail_service_1 = require("./notifications/mail.service");
@@ -20,6 +21,9 @@ const sms_service_1 = require("./notifications/sms.service");
 const sms_controller_1 = require("./notifications/sms.controller");
 const realtime_gateway_1 = require("./notifications/realtime.gateway");
 const realtime_notification_service_1 = require("./notifications/realtime-notification.service");
+const notification_schema_1 = require("./notifications/notification.schema");
+const notification_store_service_1 = require("./notifications/notification-store.service");
+const user_notifications_controller_1 = require("./notifications/user-notifications.controller");
 let AppModule = class AppModule {
     _queueConsumer;
     constructor(_queueConsumer) {
@@ -33,8 +37,14 @@ exports.AppModule = AppModule = __decorate([
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
             }),
+            mongoose_1.MongooseModule.forRoot(process.env.MONGO_URI ??
+                process.env.MONGODB_URI ??
+                'mongodb://localhost:27017/healthcare-platform'),
+            mongoose_1.MongooseModule.forFeature([
+                { name: notification_schema_1.AppNotification.name, schema: notification_schema_1.AppNotificationSchema },
+            ]),
         ],
-        controllers: [notifications_listener_1.NotificationsListener, sms_controller_1.SmsController],
+        controllers: [notifications_listener_1.NotificationsListener, sms_controller_1.SmsController, user_notifications_controller_1.UserNotificationsController],
         providers: [
             mail_service_1.MailService,
             sms_service_1.SmsService,
@@ -42,6 +52,7 @@ exports.AppModule = AppModule = __decorate([
             notification_queue_consumer_1.NotificationQueueConsumer,
             realtime_gateway_1.RealtimeGateway,
             realtime_notification_service_1.RealtimeNotificationService,
+            notification_store_service_1.NotificationStoreService,
         ],
     }),
     __metadata("design:paramtypes", [notification_queue_consumer_1.NotificationQueueConsumer])

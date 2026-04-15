@@ -4,6 +4,7 @@ export declare class NotificationsListener {
     private readonly logger;
     constructor(dispatcher: NotificationDispatcherService);
     onUserRegistered(data: {
+        userId?: string;
         email: string;
         fullName: string;
         role: string;

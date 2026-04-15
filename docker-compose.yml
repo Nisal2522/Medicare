@@ -185,6 +185,8 @@ services:
     environment:
       PORT: '3008'
       RABBITMQ_URL: amqp://rabbitmq:5672
+      MONGO_URI: ${MONGO_URI_NOTIFICATION:-mongodb://mongodb:27017/healthcare-platform}
+      JWT_SECRET: ${JWT_SECRET:-change-me-secret}
     depends_on:
       rabbitmq:
         condition: service_healthy

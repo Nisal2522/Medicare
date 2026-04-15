@@ -29,6 +29,7 @@ export class NotificationDispatcherService {
   ) {}
 
   async onUserRegistered(payload: {
+    userId?: string;
     email: string;
     fullName: string;
     role: string;
@@ -46,7 +47,8 @@ export class NotificationDispatcherService {
     );
 
     await this.mail.sendHtml(payload.email, subject, html);
-    this.realtime.notifyPatientByEmail(payload.email, 'user_registered', {
+    await this.realtime.notifyPatientByEmail(payload.email, 'user_registered', {
+      userId: payload.userId,
       type: 'user_registered',
       title: 'Welcome to MediSmart',
       message: 'Your account has been created successfully.',
@@ -79,14 +81,14 @@ export class NotificationDispatcherService {
     );
 
     await this.mail.sendHtml(payload.patientEmail, subject, patientHtml);
-    this.realtime.notifyPatientByEmail(payload.patientEmail, 'appointment_created', {
+    await this.realtime.notifyPatientByEmail(payload.patientEmail, 'appointment_created', {
       type: 'appointment_created',
       title: 'Appointment booked',
       message: `Your appointment with ${a.doctorName ?? 'doctor'} is booked.`,
       appointment: a,
       ts: Date.now(),
     });
-    this.realtime.notifyDoctorById(a.doctorId, 'appointment_created', {
+    await this.realtime.notifyDoctorById(a.doctorId, 'appointment_created', {
       type: 'appointment_created',
       title: 'New appointment booked',
       message: `${a.patientName ?? 'A patient'} booked your slot.`,
@@ -148,14 +150,14 @@ export class NotificationDispatcherService {
     );
 
     await this.mail.sendHtml(payload.patientEmail, subject, html);
-    this.realtime.notifyPatientByEmail(payload.patientEmail, 'video_call_reminder', {
+    await this.realtime.notifyPatientByEmail(payload.patientEmail, 'video_call_reminder', {
       type: 'video_call_reminder',
       title: 'Video reminder',
       message: `Your consultation starts in about 10 minutes (ID ${a.id ?? '—'}).`,
       appointment: a,
       ts: Date.now(),
     });
-    this.realtime.notifyDoctorById(a.doctorId, 'video_call_reminder', {
+    await this.realtime.notifyDoctorById(a.doctorId, 'video_call_reminder', {
       type: 'video_call_reminder',
       title: 'Upcoming consultation',
       message: `Consultation with ${a.patientName ?? 'patient'} starts in about 10 minutes.`,
@@ -211,7 +213,7 @@ export class NotificationDispatcherService {
     );
 
     await this.mail.sendHtml(payload.patientEmail, subject, html);
-    this.realtime.notifyPatientByEmail(payload.patientEmail, 'prescription_ready', {
+    await this.realtime.notifyPatientByEmail(payload.patientEmail, 'prescription_ready', {
       type: 'prescription_ready',
       title: 'Prescription ready',
       message: `Prescription is available for appointment ${payload.appointmentId}.`,
@@ -247,7 +249,7 @@ export class NotificationDispatcherService {
       <p style="color:#64748b;font-size:13px">Thank you for choosing MediSmart. We look forward to supporting your care.</p>`,
     );
     await this.mail.sendHtml(payload.patientEmail, subject, html);
-    this.realtime.notifyPatientByEmail(
+    await this.realtime.notifyPatientByEmail(
       payload.patientEmail,
       'appointment_doctor_approved',
       {
@@ -269,14 +271,14 @@ export class NotificationDispatcherService {
     appointment: AppointmentSlice;
   }): Promise<void> {
     const a = payload.appointment;
-    this.realtime.notifyPatientByEmail(payload.patientEmail, 'payment_success', {
+    await this.realtime.notifyPatientByEmail(payload.patientEmail, 'payment_success', {
       type: 'payment_success',
       title: 'Payment completed',
       message: `Payment completed for appointment ${a.id ?? '—'}.`,
       appointment: a,
       ts: Date.now(),
     });
-    this.realtime.notifyDoctorById(a.doctorId, 'payment_success', {
+    await this.realtime.notifyDoctorById(a.doctorId, 'payment_success', {
       type: 'payment_success',
       title: 'Appointment confirmed',
       message: `Payment is complete for appointment ${a.id ?? '—'}.`,

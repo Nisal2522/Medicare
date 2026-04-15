@@ -64,6 +64,21 @@ let AdminService = class AdminService {
         await this.syncDoctorActivationIfNeeded(targetId, target.role, false);
         return { message: 'Account deactivated' };
     }
+    async deleteUser(actorSub, targetId) {
+        if (actorSub === targetId) {
+            throw new common_1.ForbiddenException('You cannot delete your own account');
+        }
+        const target = await this.userModel.findById(targetId).exec();
+        if (!target) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (target.role === role_enum_1.Role.ADMIN) {
+            throw new common_1.ForbiddenException('Cannot delete admin accounts from this endpoint');
+        }
+        await this.syncDoctorActivationIfNeeded(targetId, target.role, false);
+        await target.deleteOne();
+        return { message: 'Account deleted' };
+    }
     async activateUser(actorSub, targetId) {
         if (actorSub === targetId) {
             throw new common_1.ForbiddenException('You cannot activate your own account from this endpoint');
