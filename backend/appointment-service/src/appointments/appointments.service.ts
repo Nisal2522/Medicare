@@ -298,6 +298,11 @@ export class AppointmentsService implements OnModuleInit {
     }
 
     const doctor = await this.fetchDoctor(dto.doctorId);
+    if (!doctor.isVerified) {
+      throw new ForbiddenException(
+        'This doctor has not been verified by an administrator yet',
+      );
+    }
     const slot = this.resolveSlot(doctor, dto);
 
     let patientId: Types.ObjectId | undefined;
@@ -929,6 +934,115 @@ export class AppointmentsService implements OnModuleInit {
     }
 
     return { message: 'Appointment cancelled successfully' };
+  }
+
+  async rescheduleAppointment(
+    appointmentId: string,
+    dto: { patientEmail: string; appointmentDate: string; day: string; startTime: string; endTime: string },
+    authHeader?: string,
+  ): Promise<{ message: string; appointment: ReturnType<AppointmentsService['mapRow']> }> {
+    if (!Types.ObjectId.isValid(appointmentId)) {
+      throw new BadRequestException('Invalid appointment id');
+    }
+
+    const appt = await this.appointmentModel.findById(appointmentId).exec();
+    if (!appt) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    this.validatePatientIdentity(authHeader, appt.patientEmail, dto.patientEmail);
+
+    if (appt.status === AppointmentStatus.CANCELLED) {
+      throw new BadRequestException('Cannot reschedule a cancelled appointment');
+    }
+    if (appt.status === AppointmentStatus.COMPLETED) {
+      throw new BadRequestException('Cannot reschedule a completed appointment');
+    }
+
+    const newDateKey = this.parseDateKey(dto.appointmentDate);
+    const weekday = this.weekdayFromYmd(newDateKey);
+    const selectedDay = dto.day.trim();
+    if (weekday !== selectedDay) {
+      throw new BadRequestException(
+        `appointmentDate falls on ${weekday}, not ${selectedDay} (${COLOMBO})`,
+      );
+    }
+
+    const doctor = await this.fetchDoctor(String(appt.doctorId));
+    if (!doctor.isVerified) {
+      throw new ForbiddenException('Doctor is not verified');
+    }
+
+    const slot = doctor.availability.find(
+      (a) =>
+        a.day === selectedDay &&
+        a.startTime === dto.startTime.trim() &&
+        a.endTime === dto.endTime.trim() &&
+        a.isAvailable === true,
+    );
+    if (!slot) {
+      throw new BadRequestException('Selected slot is not available');
+    }
+
+    const newSlotKey = `${selectedDay}|${dto.startTime.trim()}|${dto.endTime.trim()}`;
+    const doctorObjectId = appt.doctorId;
+
+    const slotCapacity = Math.max(1, Number(slot.maxPatients || 1));
+    const activeCount = await this.appointmentModel.countDocuments({
+      doctorId: doctorObjectId,
+      appointmentDateKey: newDateKey,
+      slotKey: newSlotKey,
+      status: { $ne: AppointmentStatus.CANCELLED },
+    });
+    if (activeCount >= slotCapacity) {
+      throw new ConflictException(
+        `New slot is full (${slotCapacity} patients). Please choose another slot`,
+      );
+    }
+
+    await this.appointmentModel.updateOne(
+      { _id: appt._id },
+      {
+        $set: {
+          appointmentDateKey: newDateKey,
+          day: selectedDay,
+          startTime: dto.startTime.trim(),
+          endTime: dto.endTime.trim(),
+          slotKey: newSlotKey,
+          doctorApprovalStatus: DoctorApprovalStatus.PENDING,
+        },
+      },
+    );
+
+    const updated = await this.appointmentModel.findById(appt._id).exec();
+    if (!updated) {
+      throw new NotFoundException('Appointment not found after update');
+    }
+
+    const row = this.mapRow(updated);
+    this.emitAppointmentUpserted({
+      appointmentId: row.id,
+      doctorId: row.doctorId,
+      patientId: row.patientId,
+      status: row.status,
+      doctorApprovalStatus: row.doctorApprovalStatus,
+      occurredAt: new Date().toISOString(),
+      traceId: new Types.ObjectId().toHexString(),
+    });
+    this.notifications.emit('appointment_rescheduled', {
+      patientEmail: row.patientEmail,
+      patientPhone: row.patientPhone,
+      doctorPhone: row.doctorPhone,
+      doctorEmail: row.doctorEmail,
+      appointment: row,
+      previousDate: appt.appointmentDateKey,
+      previousSlot: `${appt.startTime}-${appt.endTime}`,
+    });
+
+    return {
+      message: 'Appointment rescheduled successfully',
+      appointment: row,
+    };
   }
 
   async findByIdForPrescription(
