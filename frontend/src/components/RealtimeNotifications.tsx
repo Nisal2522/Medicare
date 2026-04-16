@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { io } from 'socket.io-client'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
-import { useNotifications } from '../context/NotificationContext'
+import { useNotifications } from '../context/notifications.store'
 
 type NotificationPayload = {
   type?: string

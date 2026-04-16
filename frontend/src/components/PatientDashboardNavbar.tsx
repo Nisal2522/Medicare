@@ -6,7 +6,7 @@ import {
   dashboardNavbarGridClass,
 } from './dashboardShell'
 import { brandButtonClass } from './LandingNavbar'
-import { useNotifications } from '../context/NotificationContext'
+import { useNotifications } from '../context/notifications.store'
 
 type Props = {
   onMenuClick?: () => void
@@ -27,8 +27,6 @@ function NotificationsButton({ className = '' }: { className?: string }) {
     unreadCount,
     loading,
     markAllRead,
-    dismissNotification,
-    clearReadNotifications,
     clearNotifications,
   } = useNotifications()
 
@@ -50,14 +48,7 @@ function NotificationsButton({ className = '' }: { className?: string }) {
     }
   }, [open, unreadCount, markAllRead])
 
-  useEffect(() => {
-    if (open) return
-    if (!notifications.length) return
-    // User has viewed notifications; clear the seen rows.
-    void clearReadNotifications()
-  }, [open, notifications.length, clearReadNotifications])
-
-  const items = useMemo(() => notifications.slice(0, 8), [notifications])
+  const items = useMemo(() => notifications.slice(0, 5), [notifications])
 
   return (
     <div ref={wrapRef} className={`relative ${className}`}>
@@ -85,7 +76,7 @@ function NotificationsButton({ className = '' }: { className?: string }) {
               </span>
             </div>
             <p className="mt-0.5 text-[11px] text-slate-500">
-              Opened notifications auto-clear after viewing.
+              Showing latest 5 notifications from your history.
             </p>
           </div>
           <div className="flex items-center justify-end border-b border-sky-100 px-3 py-2">
@@ -113,23 +104,36 @@ function NotificationsButton({ className = '' }: { className?: string }) {
           ) : (
             <ul className="max-h-80 overflow-y-auto">
               {items.map((n) => (
-                <li key={n.id} className="border-b border-slate-100 px-3 py-2.5 last:border-b-0">
-                  <button
-                    type="button"
-                    onClick={() => void dismissNotification(n.id)}
-                    className="w-full rounded-lg px-1 text-left transition hover:bg-sky-50"
-                    title="Mark as seen and remove"
-                  >
-                    <p className="text-xs font-semibold text-slate-900">{n.title}</p>
-                    <p className="mt-0.5 text-xs text-slate-600">
+                <li
+                  key={n.id}
+                  className={`border-b px-3 py-2.5 last:border-b-0 ${
+                    n.read
+                      ? 'border-slate-100 bg-slate-50/70'
+                      : 'border-sky-100 bg-sky-50/80'
+                  }`}
+                >
+                  <div className="w-full rounded-lg px-1 text-left">
+                    <div className="flex items-center justify-between gap-2">
+                      <p
+                        className={`text-xs font-semibold ${
+                          n.read ? 'text-slate-600' : 'text-slate-900'
+                        }`}
+                      >
+                        {n.title}
+                      </p>
+                      {!n.read ? (
+                        <span className="h-2 w-2 rounded-full bg-sky-500" aria-hidden />
+                      ) : null}
+                    </div>
+                    <p className={`mt-0.5 text-xs ${n.read ? 'text-slate-500' : 'text-slate-700'}`}>
                       {n.message || '—'}
                     </p>
-                    <p className="mt-1 text-[10px] text-slate-400">
+                    <p className={`mt-1 text-[10px] ${n.read ? 'text-slate-400' : 'text-sky-700'}`}>
                       {new Date(n.ts).toLocaleString('en-LK', {
                         timeZone: 'Asia/Colombo',
                       })}
                     </p>
-                  </button>
+                  </div>
                 </li>
               ))}
             </ul>

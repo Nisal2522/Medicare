@@ -9,13 +9,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { RtcRole, RtcTokenBuilder } from 'agora-access-token';
 import { Model, Types } from 'mongoose';
 import type { JwtPayload } from '../auth/jwt.strategy';
-import { AppointmentRef } from '../appointments/appointment.schema';
+import { VideoSession, type VideoSessionDocument } from './video-session.schema';
 
 const TOKEN_TTL_SECONDS = 3600;
 
 type TelecomAppointment = {
   doctorId: Types.ObjectId | string;
-  patientId?: Types.ObjectId | string;
+  patientId: Types.ObjectId | string;
   patientEmail: string;
   status: string;
   doctorApprovalStatus: string;
@@ -24,8 +24,8 @@ type TelecomAppointment = {
 @Injectable()
 export class TelecomService {
   constructor(
-    @InjectModel(AppointmentRef.name)
-    private readonly appointmentModel: Model<AppointmentRef>,
+    @InjectModel(VideoSession.name)
+    private readonly videoSessionModel: Model<VideoSessionDocument>,
     private readonly config: ConfigService,
   ) {}
 
@@ -80,6 +80,7 @@ export class TelecomService {
     }
 
     this.assertParticipant(user, appt);
+    await this.upsertVideoSession(appointmentId, appt);
 
     const uid = this.uidFromSub(user.sub);
     const privilegeExpiredTs = Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS;
@@ -113,27 +114,12 @@ export class TelecomService {
     return 'PENDING';
   }
 
-  /** Local Mongo first; if missing, ask appointment-service (canonical store). */
+  /** Appointment details come from appointment-service (canonical store). */
   private async loadAppointmentForTelecom(
     appointmentId: string,
   ): Promise<TelecomAppointment | null> {
-    const local = await this.appointmentModel.findById(appointmentId).lean().exec();
-    if (local) {
-      const l = local as {
-        doctorId: Types.ObjectId;
-        patientId?: Types.ObjectId;
-        patientEmail: string;
-        status?: string;
-        doctorApprovalStatus?: string;
-      };
-      return {
-        doctorId: l.doctorId,
-        patientId: l.patientId,
-        patientEmail: l.patientEmail,
-        status: l.status ?? '',
-        doctorApprovalStatus: this.effectiveDoctorApproval(l),
-      };
-    }
+    // Telemedicine service no longer stores/read mirrors in "appointments" collection.
+    // The canonical appointment status is fetched from appointment-service.
     return this.fetchAppointmentFromAppointmentService(appointmentId);
   }
 
@@ -157,6 +143,7 @@ export class TelecomService {
         status: string;
         doctorApprovalStatus?: string;
       };
+      if (!data.patientId) return null;
       return {
         doctorId: data.doctorId,
         patientId: data.patientId,
@@ -174,7 +161,7 @@ export class TelecomService {
 
     if (user.role === 'PATIENT') {
       const byId =
-        appt.patientId != null && String(appt.patientId) === user.sub;
+        String(appt.patientId) === user.sub;
       const byEmail = appt.patientEmail === email;
       if (byId || byEmail) return;
       throw new ForbiddenException('Not a participant of this appointment');
@@ -186,6 +173,29 @@ export class TelecomService {
     }
 
     throw new ForbiddenException('Only PATIENT or DOCTOR roles may join a call');
+  }
+
+  private async upsertVideoSession(
+    appointmentId: string,
+    appt: TelecomAppointment,
+  ): Promise<void> {
+    const now = new Date();
+    await this.videoSessionModel.updateOne(
+      { roomName: appointmentId },
+      {
+        $setOnInsert: {
+          roomName: appointmentId,
+          appointmentId,
+          startedAt: now,
+        },
+        $set: {
+          doctorId: String(appt.doctorId),
+          patientId: String(appt.patientId),
+          status: 'ACTIVE',
+        },
+      },
+      { upsert: true },
+    );
   }
 
   /** Stable uint32 uid for Agora (must match client join). */

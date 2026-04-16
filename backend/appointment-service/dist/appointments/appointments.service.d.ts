@@ -5,13 +5,32 @@ import { ClientProxy } from '@nestjs/microservices';
 import { Model } from 'mongoose';
 import { AppointmentDocument, DoctorApprovalStatus } from './appointment.schema';
 import { BookAppointmentDto } from './dto/book-appointment.dto';
+type AppointmentSummarySnapshot = {
+    appointmentId: string;
+    doctorId: string;
+    appointmentDateKey: string;
+    day: string;
+    startTime: string;
+    endTime: string;
+    status: string;
+    paymentStatus: string;
+};
+type PaymentFailedV1Event = {
+    appointmentId: string;
+    traceId: string;
+};
 export declare class AppointmentsService implements OnModuleInit {
     private readonly appointmentModel;
     private readonly http;
     private readonly jwt;
     private readonly notifications;
+    private readonly patientEvents;
     private readonly logger;
-    constructor(appointmentModel: Model<AppointmentDocument>, http: HttpService, jwt: JwtService, notifications: ClientProxy);
+    private static readonly APPOINTMENT_PAYMENT_CHANGED_V1;
+    private static readonly APPOINTMENT_UPSERTED_V1;
+    constructor(appointmentModel: Model<AppointmentDocument>, http: HttpService, jwt: JwtService, notifications: ClientProxy, patientEvents: ClientProxy);
+    private emitPaymentStatusChanged;
+    private emitAppointmentUpserted;
     onModuleInit(): Promise<void>;
     private ensureSlotIndexes;
     effectiveDoctorApproval(o: Record<string, unknown>): DoctorApprovalStatus;
@@ -174,14 +193,17 @@ export declare class AppointmentsService implements OnModuleInit {
         status: string;
         doctorApprovalStatus: DoctorApprovalStatus;
     }>;
+    getSummarySnapshot(id: string): Promise<AppointmentSummarySnapshot>;
     setDoctorApproval(appointmentId: string, doctorSub: string, decision: 'approve' | 'reject'): Promise<{
         message: string;
         appointment: ReturnType<AppointmentsService['mapRow']>;
     }>;
     confirmPaymentSuccess(appointmentId: string): Promise<void>;
+    markPaymentFailed(event: PaymentFailedV1Event): Promise<void>;
     cancelByPatient(appointmentId: string, patientEmail: string, authHeader?: string): Promise<{
         message: string;
     }>;
     findByIdForPrescription(appointmentId: string, doctorSub: string): Promise<AppointmentDocument>;
     completeAfterPrescription(appointmentId: string, doctorSub: string): Promise<void>;
 }
+export {};

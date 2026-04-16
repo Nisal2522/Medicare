@@ -19,6 +19,7 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const rxjs_1 = require("rxjs");
 const stripe_1 = __importDefault(require("stripe"));
+const node_crypto_1 = require("node:crypto");
 const payment_rmq_publisher_1 = require("./payment-rmq.publisher");
 let PaymentsService = PaymentsService_1 = class PaymentsService {
     http;
@@ -30,6 +31,29 @@ let PaymentsService = PaymentsService_1 = class PaymentsService {
         this.http = http;
         this.config = config;
         this.rmq = rmq;
+    }
+    emitPaymentSucceeded(appointmentId, paymentIntentId) {
+        const event = {
+            appointmentId,
+            paymentIntentId,
+            occurredAt: new Date().toISOString(),
+            traceId: (0, node_crypto_1.randomUUID)(),
+        };
+        this.rmq.publishPaymentSuccess(appointmentId);
+        this.rmq.publishPaymentSucceededV1(event);
+    }
+    emitPaymentFailed(appointmentId, reason, paymentIntentId) {
+        const event = {
+            appointmentId,
+            reason,
+            paymentIntentId,
+            occurredAt: new Date().toISOString(),
+            traceId: (0, node_crypto_1.randomUUID)(),
+        };
+        this.rmq.publishPaymentFailedV1(event);
+    }
+    emitPatientPaymentRecorded(event) {
+        this.rmq.publishPatientPaymentRecordedV1(event);
     }
     getStripe() {
         const key = this.config.get('STRIPE_SECRET_KEY')?.trim();
@@ -159,9 +183,20 @@ let PaymentsService = PaymentsService_1 = class PaymentsService {
             throw new common_1.BadRequestException('Payment intent does not match appointment');
         }
         if (intent.status !== 'succeeded') {
+            this.emitPaymentFailed(dto.appointmentId, `PaymentIntent status is ${intent.status}`, intent.id);
             throw new common_1.BadRequestException('Payment is not completed yet');
         }
-        this.rmq.publishPaymentSuccess(dto.appointmentId);
+        this.emitPaymentSucceeded(dto.appointmentId, intent.id);
+        this.emitPatientPaymentRecorded({
+            appointmentId: dto.appointmentId,
+            amountCents: preview.amountMinor,
+            currency: preview.currency.toUpperCase(),
+            status: 'paid',
+            description: `Appointment payment for ${dto.appointmentId}`,
+            reference: intent.id,
+            occurredAt: new Date().toISOString(),
+            traceId: (0, node_crypto_1.randomUUID)(),
+        });
         await this.markAppointmentPaidDirect(dto.appointmentId);
         return {
             ok: true,
@@ -188,7 +223,17 @@ let PaymentsService = PaymentsService_1 = class PaymentsService {
         if (!matched) {
             return { ok: true, appointmentId: dto.appointmentId, updated: false };
         }
-        this.rmq.publishPaymentSuccess(dto.appointmentId);
+        this.emitPaymentSucceeded(dto.appointmentId, matched.id);
+        this.emitPatientPaymentRecorded({
+            appointmentId: dto.appointmentId,
+            amountCents: preview.amountMinor,
+            currency: preview.currency.toUpperCase(),
+            status: 'paid',
+            description: `Appointment payment for ${dto.appointmentId}`,
+            reference: matched.id,
+            occurredAt: new Date().toISOString(),
+            traceId: (0, node_crypto_1.randomUUID)(),
+        });
         await this.markAppointmentPaidDirect(dto.appointmentId);
         return {
             ok: true,
@@ -243,12 +288,45 @@ let PaymentsService = PaymentsService_1 = class PaymentsService {
                 }
                 break;
             }
+            case 'payment_intent.payment_failed': {
+                const pi = event.data.object;
+                appointmentId = pi.metadata?.appointmentId;
+                break;
+            }
             default:
                 break;
         }
         if (appointmentId) {
-            this.rmq.publishPaymentSuccess(appointmentId);
-            void this.markAppointmentPaidDirect(appointmentId);
+            if (event.type === 'payment_intent.payment_failed') {
+                const pi = event.data.object;
+                this.emitPaymentFailed(appointmentId, pi.last_payment_error?.message ?? 'Stripe payment intent failed', pi.id);
+                this.emitPatientPaymentRecorded({
+                    appointmentId,
+                    amountCents: Number(pi.amount || 0),
+                    currency: (pi.currency || 'lkr').toUpperCase(),
+                    status: 'failed',
+                    description: pi.last_payment_error?.message ??
+                        `Payment failed for appointment ${appointmentId}`,
+                    reference: pi.id,
+                    occurredAt: new Date().toISOString(),
+                    traceId: (0, node_crypto_1.randomUUID)(),
+                });
+            }
+            else {
+                const pi = event.data.object;
+                this.emitPaymentSucceeded(appointmentId, pi.id);
+                this.emitPatientPaymentRecorded({
+                    appointmentId,
+                    amountCents: Number(pi.amount_received || pi.amount || 0),
+                    currency: (pi.currency || 'lkr').toUpperCase(),
+                    status: 'paid',
+                    description: `Appointment payment for ${appointmentId}`,
+                    reference: pi.id,
+                    occurredAt: new Date().toISOString(),
+                    traceId: (0, node_crypto_1.randomUUID)(),
+                });
+                void this.markAppointmentPaidDirect(appointmentId);
+            }
         }
         return { received: true };
     }

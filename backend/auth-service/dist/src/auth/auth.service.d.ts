@@ -11,7 +11,9 @@ export declare class AuthService {
     private readonly jwtService;
     private readonly adminService;
     private readonly notificationsClient;
-    constructor(authRepository: AuthRepository, jwtService: JwtService, adminService: AdminService, notificationsClient: ClientProxy);
+    private readonly patientEventsClient;
+    private static readonly USER_REGISTERED_V1;
+    constructor(authRepository: AuthRepository, jwtService: JwtService, adminService: AdminService, notificationsClient: ClientProxy, patientEventsClient: ClientProxy);
     register(dto: RegisterDto): Promise<{
         message: string;
         user: {
@@ -23,6 +25,7 @@ export declare class AuthService {
         };
     }>;
     private emitRegistrationEmail;
+    private emitUserRegisteredEvent;
     getMe(userId: string): Promise<{
         id: string;
         fullName: string;

@@ -44,26 +44,32 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var AuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const microservices_1 = require("@nestjs/microservices");
 const bcrypt = __importStar(require("bcrypt"));
+const node_crypto_1 = require("node:crypto");
 const rxjs_1 = require("rxjs");
 const admin_service_1 = require("./admin/admin.service");
 const auth_repository_1 = require("./auth.repository");
 const role_enum_1 = require("./enums/role.enum");
 let AuthService = class AuthService {
+    static { AuthService_1 = this; }
     authRepository;
     jwtService;
     adminService;
     notificationsClient;
-    constructor(authRepository, jwtService, adminService, notificationsClient) {
+    patientEventsClient;
+    static USER_REGISTERED_V1 = 'UserRegistered.v1';
+    constructor(authRepository, jwtService, adminService, notificationsClient, patientEventsClient) {
         this.authRepository = authRepository;
         this.jwtService = jwtService;
         this.adminService = adminService;
         this.notificationsClient = notificationsClient;
+        this.patientEventsClient = patientEventsClient;
     }
     async register(dto) {
         const existingUser = await this.authRepository.findByEmail(dto.email);
@@ -94,6 +100,12 @@ let AuthService = class AuthService {
             email: user.email,
             role: user.role,
         });
+        void this.emitUserRegisteredEvent({
+            userId,
+            fullName: user.fullName,
+            email: user.email,
+            role: user.role,
+        });
         return {
             message: 'User registered successfully',
             user: {
@@ -113,6 +125,21 @@ let AuthService = class AuthService {
                 fullName: payload.fullName,
                 role: payload.role,
             }));
+        }
+        catch {
+        }
+    }
+    async emitUserRegisteredEvent(payload) {
+        const event = {
+            userId: payload.userId,
+            fullName: payload.fullName,
+            email: payload.email,
+            role: payload.role,
+            occurredAt: new Date().toISOString(),
+            traceId: (0, node_crypto_1.randomUUID)(),
+        };
+        try {
+            await (0, rxjs_1.firstValueFrom)(this.patientEventsClient.emit(AuthService_1.USER_REGISTERED_V1, event));
         }
         catch {
         }
@@ -207,12 +234,14 @@ let AuthService = class AuthService {
     }
 };
 exports.AuthService = AuthService;
-exports.AuthService = AuthService = __decorate([
+exports.AuthService = AuthService = AuthService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(3, (0, common_1.Inject)('NOTIFICATIONS_CLIENT')),
+    __param(4, (0, common_1.Inject)('PATIENT_EVENTS_CLIENT')),
     __metadata("design:paramtypes", [auth_repository_1.AuthRepository,
         jwt_1.JwtService,
         admin_service_1.AdminService,
+        microservices_1.ClientProxy,
         microservices_1.ClientProxy])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

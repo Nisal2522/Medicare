@@ -1,11 +1,11 @@
 import { ConfigService } from '@nestjs/config';
 import { Model } from 'mongoose';
 import type { JwtPayload } from '../auth/jwt.strategy';
-import { AppointmentRef } from '../appointments/appointment.schema';
+import { type VideoSessionDocument } from './video-session.schema';
 export declare class TelecomService {
-    private readonly appointmentModel;
+    private readonly videoSessionModel;
     private readonly config;
-    constructor(appointmentModel: Model<AppointmentRef>, config: ConfigService);
+    constructor(videoSessionModel: Model<VideoSessionDocument>, config: ConfigService);
     getRtcToken(user: JwtPayload, channelName: string): Promise<{
         token: string;
         appId: string;
@@ -19,5 +19,6 @@ export declare class TelecomService {
     private loadAppointmentForTelecom;
     private fetchAppointmentFromAppointmentService;
     private assertParticipant;
+    private upsertVideoSession;
     uidFromSub(sub: string): number;
 }

@@ -33,6 +33,15 @@ import { JwtStrategy } from './strategies/jwt.strategy';
           queueOptions: { durable: true },
         },
       },
+      {
+        name: 'PATIENT_EVENTS_CLIENT',
+        transport: Transport.RMQ,
+        options: {
+          urls: [process.env.RABBITMQ_URL ?? 'amqp://localhost:5672'],
+          queue: 'patient_events_queue',
+          queueOptions: { durable: true },
+        },
+      },
     ]),
     JwtModule.register({
       secret: process.env.JWT_SECRET ?? 'change-me-secret',

@@ -480,7 +480,7 @@ export default function FindDoctorPage() {
           setBookingDoctor(null)
           setBookingSlot(null)
         }}
-        onBooked={(_payload) => {
+        onBooked={() => {
           setBookingDoctor(null)
           setBookingSlot(null)
         }}

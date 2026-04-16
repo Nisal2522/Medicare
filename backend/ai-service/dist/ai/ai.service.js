@@ -8,12 +8,18 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var AiService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiService = void 0;
 const axios_1 = require("@nestjs/axios");
 const common_1 = require("@nestjs/common");
+const mongoose_1 = require("@nestjs/mongoose");
+const mongoose_2 = require("mongoose");
 const rxjs_1 = require("rxjs");
+const symptom_analysis_history_schema_1 = require("./schemas/symptom-analysis-history.schema");
 function parseModelJsonObject(raw) {
     let s = raw.trim();
     const fenced = /^```(?:json)?\s*([\s\S]*?)```$/im.exec(s);
@@ -105,15 +111,21 @@ You must respond with ONLY valid JSON (no markdown). Use exactly these camelCase
 
 ${JSON_DISCLAIMER}`;
 const DEFAULT_GROQ_BASE = 'https://api.groq.com/openai/v1';
-const DEFAULT_GROQ_MODEL = 'llama3-8b-8192';
+const DEFAULT_GROQ_MODEL = 'llama-3.1-8b-instant';
+const GROQ_FALLBACK_MODELS = [
+    'llama-3.1-8b-instant',
+    'llama-3.3-70b-versatile',
+];
 const GROQ_REQUEST_TIMEOUT_MS = 90_000;
 let AiService = AiService_1 = class AiService {
     http;
+    historyModel;
     log = new common_1.Logger(AiService_1.name);
-    constructor(http) {
+    constructor(http, historyModel) {
         this.http = http;
+        this.historyModel = historyModel;
     }
-    analyze(user, symptoms) {
+    async analyze(user, payload) {
         if (user.role !== 'PATIENT') {
             throw new common_1.UnauthorizedException('Only patients can use symptom analysis');
         }
@@ -121,13 +133,50 @@ let AiService = AiService_1 = class AiService {
         if (!groqKey) {
             throw new common_1.ServiceUnavailableException('Symptom analysis is not configured (missing GROQ_API_KEY).');
         }
-        return this.callGroq(symptoms, groqKey);
+        const result = await this.callGroq(payload, groqKey);
+        await this.historyModel.create({
+            userId: user.sub,
+            userEmail: user.email.toLowerCase(),
+            symptoms: payload.symptoms.trim(),
+            age: payload.age,
+            gender: payload.gender,
+            summary: result.summary,
+            preliminaryCondition: result.preliminaryCondition,
+            detailedAnalysis: result.detailedAnalysis,
+            recommendedSpecialty: result.recommendedSpecialty,
+            urgencyLevel: result.urgencyLevel,
+            disclaimer: result.disclaimer,
+        });
+        return result;
     }
-    async callGroq(symptoms, apiKey) {
+    async listHistory(user) {
+        if (user.role !== 'PATIENT') {
+            throw new common_1.UnauthorizedException('Only patients can view symptom history');
+        }
+        const rows = await this.historyModel
+            .find({ userId: user.sub })
+            .sort({ createdAt: -1 })
+            .limit(50)
+            .lean()
+            .exec();
+        return rows.map((row) => ({
+            id: String(row._id),
+            symptoms: row.symptoms,
+            age: row.age,
+            gender: row.gender,
+            summary: row.summary,
+            preliminaryCondition: row.preliminaryCondition,
+            recommendedSpecialty: row.recommendedSpecialty,
+            urgencyLevel: row.urgencyLevel,
+            createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+        }));
+    }
+    async callGroq(payload, apiKey) {
         const base = (process.env.GROQ_BASE_URL ?? DEFAULT_GROQ_BASE).replace(/\/$/, '');
-        const model = process.env.GROQ_MODEL?.trim() || DEFAULT_GROQ_MODEL;
+        const configuredModel = process.env.GROQ_MODEL?.trim() || DEFAULT_GROQ_MODEL;
+        const modelCandidates = [configuredModel, ...GROQ_FALLBACK_MODELS].filter((model, idx, arr) => !!model && arr.indexOf(model) === idx);
         const url = `${base}/chat/completions`;
-        const userText = `Patient symptom description:\n${symptoms}`;
+        const userText = `Patient profile:\n- Age: ${payload.age}\n- Gender: ${payload.gender}\n\nPatient symptom description:\n${payload.symptoms}`;
         const messages = [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: userText },
@@ -141,38 +190,29 @@ let AiService = AiService_1 = class AiService {
         };
         try {
             let data;
-            try {
-                const res = await (0, rxjs_1.firstValueFrom)(this.http.post(url, {
-                    model,
-                    temperature: 0.25,
-                    max_tokens: 2048,
-                    response_format: { type: 'json_object' },
-                    messages,
-                }, axiosOpts));
-                data = res.data;
+            let usedModel = configuredModel;
+            for (const model of modelCandidates) {
+                try {
+                    data = await this.sendGroqChatCompletion(url, model, messages, axiosOpts);
+                    usedModel = model;
+                    break;
+                }
+                catch (err) {
+                    if (this.isGroqModelDecommissioned(err)) {
+                        this.log.warn(`Groq model "${model}" is unavailable; trying fallback model.`);
+                        continue;
+                    }
+                    throw err;
+                }
             }
-            catch (first) {
-                const st = first.response
-                    ?.status;
-                if (st === 400) {
-                    this.log.debug('Groq json_object rejected; retrying without it.');
-                    const res = await (0, rxjs_1.firstValueFrom)(this.http.post(url, {
-                        model,
-                        temperature: 0.25,
-                        max_tokens: 2048,
-                        messages,
-                    }, axiosOpts));
-                    data = res.data;
-                }
-                else {
-                    throw first;
-                }
+            if (!data) {
+                throw new common_1.ServiceUnavailableException('Configured GROQ model is no longer supported. Please update GROQ_MODEL.');
             }
             const choice = data.choices?.[0];
             const message = choice?.message;
             const raw = message ? textFromAssistantMessage(message) : undefined;
             if (!raw && choice?.finish_reason) {
-                this.log.warn(`Groq finished with reason=${choice.finish_reason}`);
+                this.log.warn(`Groq finished with reason=${choice.finish_reason} (model=${usedModel})`);
             }
             if (!raw) {
                 this.log.warn('Groq returned no usable message content.');
@@ -189,6 +229,9 @@ let AiService = AiService_1 = class AiService {
             if (err instanceof common_1.BadGatewayException) {
                 throw err;
             }
+            if (err instanceof common_1.ServiceUnavailableException) {
+                throw err;
+            }
             const ax = err;
             const detail = ax.response?.data
                 ? JSON.stringify(ax.response.data).slice(0, 800)
@@ -196,6 +239,41 @@ let AiService = AiService_1 = class AiService {
             this.log.warn(`Groq request failed (status ${ax.response?.status ?? 'n/a'}): ${detail}`);
             throw new common_1.BadGatewayException('Unable to reach the AI analysis service. Try again later.');
         }
+    }
+    async sendGroqChatCompletion(url, model, messages, axiosOpts) {
+        try {
+            const res = await (0, rxjs_1.firstValueFrom)(this.http.post(url, {
+                model,
+                temperature: 0.25,
+                max_tokens: 2048,
+                response_format: { type: 'json_object' },
+                messages,
+            }, axiosOpts));
+            return res.data;
+        }
+        catch (first) {
+            const st = first.response?.status;
+            if (st === 400) {
+                this.log.debug('Groq json_object rejected; retrying without it.');
+                const res = await (0, rxjs_1.firstValueFrom)(this.http.post(url, {
+                    model,
+                    temperature: 0.25,
+                    max_tokens: 2048,
+                    messages,
+                }, axiosOpts));
+                return res.data;
+            }
+            throw first;
+        }
+    }
+    isGroqModelDecommissioned(err) {
+        const ax = err;
+        if (ax.response?.status !== 400) {
+            return false;
+        }
+        const code = ax.response.data?.error?.code ?? '';
+        const msg = ax.response.data?.error?.message ?? ax.message ?? '';
+        return code === 'model_decommissioned' || /decommissioned/i.test(msg);
     }
     normalize(parsed) {
         const root = unwrapTriageObject(parsed);
@@ -276,6 +354,8 @@ let AiService = AiService_1 = class AiService {
 exports.AiService = AiService;
 exports.AiService = AiService = AiService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [axios_1.HttpService])
+    __param(1, (0, mongoose_1.InjectModel)(symptom_analysis_history_schema_1.SymptomAnalysisHistory.name)),
+    __metadata("design:paramtypes", [axios_1.HttpService,
+        mongoose_2.Model])
 ], AiService);
 //# sourceMappingURL=ai.service.js.map

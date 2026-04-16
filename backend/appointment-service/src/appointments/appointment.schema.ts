@@ -79,6 +79,9 @@ export class Appointment {
   @Prop({ default: 'Pending payment' })
   paymentStatus!: string;
 
+  @Prop({ type: Number, default: 0, min: 0 })
+  paymentFailureCount!: number;
+
   @Prop({ required: true })
   slotKey!: string;
 

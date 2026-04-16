@@ -44,6 +44,7 @@ let Appointment = class Appointment {
     status;
     doctorApprovalStatus;
     paymentStatus;
+    paymentFailureCount;
     slotKey;
     slotSeat;
 };
@@ -124,6 +125,10 @@ __decorate([
     (0, mongoose_1.Prop)({ default: 'Pending payment' }),
     __metadata("design:type", String)
 ], Appointment.prototype, "paymentStatus", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Number, default: 0, min: 0 }),
+    __metadata("design:type", Number)
+], Appointment.prototype, "paymentFailureCount", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", String)

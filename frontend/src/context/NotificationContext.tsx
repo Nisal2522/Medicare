@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -15,34 +13,10 @@ import {
   fetchMyNotifications,
   markAllNotificationsRead,
 } from '../api/notificationApi'
-
-export type AppNotification = {
-  id: string
-  type: string
-  title: string
-  message: string
-  ts: number
-  read: boolean
-}
-
-type NotificationContextValue = {
-  notifications: AppNotification[]
-  unreadCount: number
-  loading: boolean
-  addNotification: (n: {
-    type?: string
-    title?: string
-    message?: string
-    ts?: number
-  }) => void
-  markAllRead: () => Promise<void>
-  dismissNotification: (id: string) => Promise<void>
-  clearReadNotifications: () => Promise<void>
-  clearNotifications: () => Promise<void>
-  reloadNotifications: () => Promise<void>
-}
-
-const NotificationContext = createContext<NotificationContextValue | null>(null)
+import {
+  NotificationContext,
+  type AppNotification,
+} from './notifications.store'
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth()
@@ -155,12 +129,4 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       {children}
     </NotificationContext.Provider>
   )
-}
-
-export function useNotifications() {
-  const ctx = useContext(NotificationContext)
-  if (!ctx) {
-    throw new Error('useNotifications must be used within NotificationProvider')
-  }
-  return ctx
 }

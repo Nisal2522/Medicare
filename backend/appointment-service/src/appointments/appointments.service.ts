@@ -41,9 +41,35 @@ type DoctorApiResponse = {
   }[];
 };
 
+type AppointmentSummarySnapshot = {
+  appointmentId: string;
+  doctorId: string;
+  appointmentDateKey: string;
+  day: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  paymentStatus: string;
+};
+
+type PaymentFailedV1Event = {
+  appointmentId: string;
+  traceId: string;
+};
+
+type AppointmentPaymentStatusChangedV1Event = {
+  appointmentId: string;
+  status: 'PAID' | 'FAILED' | 'CANCELLED';
+  occurredAt: string;
+  traceId: string;
+};
+
 @Injectable()
 export class AppointmentsService implements OnModuleInit {
   private readonly logger = new Logger(AppointmentsService.name);
+  private static readonly APPOINTMENT_PAYMENT_CHANGED_V1 =
+    'AppointmentPaymentStatusChanged.v1';
+  private static readonly APPOINTMENT_UPSERTED_V1 = 'AppointmentUpserted.v1';
 
   constructor(
     @InjectModel(Appointment.name)
@@ -51,7 +77,27 @@ export class AppointmentsService implements OnModuleInit {
     private readonly http: HttpService,
     private readonly jwt: JwtService,
     @Inject('NOTIFICATIONS_CLIENT') private readonly notifications: ClientProxy,
+    @Inject('PATIENT_EVENTS_CLIENT') private readonly patientEvents: ClientProxy,
   ) {}
+
+  private emitPaymentStatusChanged(event: AppointmentPaymentStatusChangedV1Event): void {
+    this.notifications.emit(
+      AppointmentsService.APPOINTMENT_PAYMENT_CHANGED_V1,
+      event,
+    );
+  }
+
+  private emitAppointmentUpserted(event: {
+    appointmentId: string;
+    doctorId: string;
+    patientId?: string;
+    status: string;
+    doctorApprovalStatus: string;
+    occurredAt: string;
+    traceId: string;
+  }): void {
+    this.patientEvents.emit(AppointmentsService.APPOINTMENT_UPSERTED_V1, event);
+  }
 
   async onModuleInit(): Promise<void> {
     await this.ensureSlotIndexes();
@@ -325,6 +371,15 @@ export class AppointmentsService implements OnModuleInit {
         });
 
         const row = this.mapRow(created);
+        this.emitAppointmentUpserted({
+          appointmentId: row.id,
+          doctorId: row.doctorId,
+          patientId: row.patientId,
+          status: row.status,
+          doctorApprovalStatus: row.doctorApprovalStatus,
+          occurredAt: new Date().toISOString(),
+          traceId: new Types.ObjectId().toHexString(),
+        });
         this.notifications.emit('appointment_created', {
           patientEmail: row.patientEmail,
           patientPhone: row.patientPhone,
@@ -632,6 +687,26 @@ export class AppointmentsService implements OnModuleInit {
     };
   }
 
+  async getSummarySnapshot(id: string): Promise<AppointmentSummarySnapshot> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid appointment id');
+    }
+    const appt = await this.appointmentModel.findById(id).lean().exec();
+    if (!appt) {
+      throw new NotFoundException('Appointment not found');
+    }
+    return {
+      appointmentId: String(appt._id),
+      doctorId: String(appt.doctorId),
+      appointmentDateKey: appt.appointmentDateKey,
+      day: appt.day,
+      startTime: appt.startTime,
+      endTime: appt.endTime,
+      status: appt.status,
+      paymentStatus: appt.paymentStatus,
+    };
+  }
+
   async setDoctorApproval(
     appointmentId: string,
     doctorSub: string,
@@ -661,6 +736,15 @@ export class AppointmentsService implements OnModuleInit {
       appt.doctorApprovalStatus = DoctorApprovalStatus.APPROVED;
       await appt.save();
       const row = this.mapRow(appt);
+      this.emitAppointmentUpserted({
+        appointmentId: row.id,
+        doctorId: row.doctorId,
+        patientId: row.patientId,
+        status: row.status,
+        doctorApprovalStatus: row.doctorApprovalStatus,
+        occurredAt: new Date().toISOString(),
+        traceId: new Types.ObjectId().toHexString(),
+      });
       this.notifications.emit('appointment_doctor_approved', {
         patientEmail: row.patientEmail,
         patientPhone: row.patientPhone,
@@ -678,6 +762,15 @@ export class AppointmentsService implements OnModuleInit {
         : 'Cancelled';
     await appt.save();
     const row = this.mapRow(appt);
+    this.emitAppointmentUpserted({
+      appointmentId: row.id,
+      doctorId: row.doctorId,
+      patientId: row.patientId,
+      status: row.status,
+      doctorApprovalStatus: row.doctorApprovalStatus,
+      occurredAt: new Date().toISOString(),
+      traceId: new Types.ObjectId().toHexString(),
+    });
     return { message: 'Appointment declined and cancelled.', appointment: row };
   }
 
@@ -704,9 +797,76 @@ export class AppointmentsService implements OnModuleInit {
       return;
     }
     const row = this.mapRow(appt);
+    this.emitAppointmentUpserted({
+      appointmentId: row.id,
+      doctorId: row.doctorId,
+      patientId: row.patientId,
+      status: row.status,
+      doctorApprovalStatus: row.doctorApprovalStatus,
+      occurredAt: new Date().toISOString(),
+      traceId: new Types.ObjectId().toHexString(),
+    });
+    this.emitPaymentStatusChanged({
+      appointmentId: row.id,
+      status: 'PAID',
+      occurredAt: new Date().toISOString(),
+      traceId: new Types.ObjectId().toHexString(),
+    });
     this.notifications.emit('appointment_payment_success', {
       patientEmail: row.patientEmail,
       appointment: row,
+    });
+  }
+
+  async markPaymentFailed(event: PaymentFailedV1Event): Promise<void> {
+    if (!Types.ObjectId.isValid(event.appointmentId)) {
+      return;
+    }
+    const appt = await this.appointmentModel
+      .findOneAndUpdate(
+        {
+          _id: new Types.ObjectId(event.appointmentId),
+          status: AppointmentStatus.PENDING_PAYMENT,
+        },
+        {
+          $inc: { paymentFailureCount: 1 },
+          $set: { paymentStatus: 'Payment failed' },
+        },
+        { new: true },
+      )
+      .exec();
+    if (!appt) return;
+
+    // Basic saga compensation: repeated failures cancel the appointment to free capacity.
+    if ((appt.paymentFailureCount ?? 0) >= 3) {
+      appt.status = AppointmentStatus.CANCELLED;
+      appt.paymentStatus = 'Cancelled due to repeated payment failures';
+      await appt.save();
+      this.emitPaymentStatusChanged({
+        appointmentId: String(appt._id),
+        status: 'CANCELLED',
+        occurredAt: new Date().toISOString(),
+        traceId: event.traceId,
+      });
+      return;
+    }
+
+    const row = this.mapRow(appt);
+    this.emitAppointmentUpserted({
+      appointmentId: row.id,
+      doctorId: row.doctorId,
+      patientId: row.patientId,
+      status: row.status,
+      doctorApprovalStatus: row.doctorApprovalStatus,
+      occurredAt: new Date().toISOString(),
+      traceId: event.traceId,
+    });
+
+    this.emitPaymentStatusChanged({
+      appointmentId: String(appt._id),
+      status: 'FAILED',
+      occurredAt: new Date().toISOString(),
+      traceId: event.traceId,
     });
   }
 
@@ -754,6 +914,19 @@ export class AppointmentsService implements OnModuleInit {
         },
       },
     );
+    const updated = await this.appointmentModel.findById(appt._id).lean().exec();
+    if (updated) {
+      const row = this.mapRow(updated);
+      this.emitAppointmentUpserted({
+        appointmentId: row.id,
+        doctorId: row.doctorId,
+        patientId: row.patientId,
+        status: row.status,
+        doctorApprovalStatus: row.doctorApprovalStatus,
+        occurredAt: new Date().toISOString(),
+        traceId: new Types.ObjectId().toHexString(),
+      });
+    }
 
     return { message: 'Appointment cancelled successfully' };
   }
@@ -797,5 +970,18 @@ export class AppointmentsService implements OnModuleInit {
         },
       },
     );
+    const updated = await this.appointmentModel.findById(appt._id).lean().exec();
+    if (updated) {
+      const row = this.mapRow(updated);
+      this.emitAppointmentUpserted({
+        appointmentId: row.id,
+        doctorId: row.doctorId,
+        patientId: row.patientId,
+        status: row.status,
+        doctorApprovalStatus: row.doctorApprovalStatus,
+        occurredAt: new Date().toISOString(),
+        traceId: new Types.ObjectId().toHexString(),
+      });
+    }
   }
 }

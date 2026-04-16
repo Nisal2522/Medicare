@@ -27,6 +27,9 @@ let InternalAppointmentsController = class InternalAppointmentsController {
     paymentPreview(id) {
         return this.appointments.getPaymentPreviewForCheckout(id);
     }
+    summarySnapshot(id) {
+        return this.appointments.getSummarySnapshot(id);
+    }
     async confirmPayment(id) {
         await this.appointments.confirmPaymentSuccess(id);
         return { ok: true };
@@ -47,6 +50,13 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], InternalAppointmentsController.prototype, "paymentPreview", null);
+__decorate([
+    (0, common_1.Get)(':id/summary-snapshot'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], InternalAppointmentsController.prototype, "summarySnapshot", null);
 __decorate([
     (0, common_1.Post)(':id/confirm-payment'),
     __param(0, (0, common_1.Param)('id')),

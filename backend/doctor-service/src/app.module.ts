@@ -7,7 +7,7 @@ import { DoctorsModule } from './doctors/doctors.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRoot(
-      process.env.MONGO_URI ?? 'mongodb://localhost:27017/healthcare-platform',
+      process.env.MONGO_URI ?? 'mongodb://localhost:27017/medismart_doctor',
     ),
     DoctorsModule,
   ],

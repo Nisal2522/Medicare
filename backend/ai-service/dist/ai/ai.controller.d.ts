@@ -8,4 +8,17 @@ export declare class AiController {
     analyze(dto: AnalyzeSymptomsDto, req: Request & {
         user: JwtPayload;
     }): Promise<import("./ai.service").SymptomAnalysisResult>;
+    listHistory(req: Request & {
+        user: JwtPayload;
+    }): Promise<{
+        id: string;
+        symptoms: string;
+        age: number;
+        gender: "Male" | "Female";
+        summary: string;
+        preliminaryCondition: string;
+        recommendedSpecialty: string;
+        urgencyLevel: "Low" | "Medium" | "High";
+        createdAt: string | null;
+    }[]>;
 }

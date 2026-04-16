@@ -12,6 +12,9 @@ export declare class PaymentsService {
     private readonly logger;
     private stripe;
     constructor(http: HttpService, config: ConfigService, rmq: PaymentRmqPublisher);
+    private emitPaymentSucceeded;
+    private emitPaymentFailed;
+    private emitPatientPaymentRecorded;
     private getStripe;
     private loadPreview;
     private assertPatientEmail;

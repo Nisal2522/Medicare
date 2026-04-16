@@ -22,7 +22,7 @@ function stripQuotes(s: string): string {
         const raw =
           cfg.get<string>('MONGO_URI')?.trim() ||
           cfg.get<string>('MONGODB_URI')?.trim() ||
-          'mongodb://localhost:27017/healthcare-platform';
+          'mongodb://localhost:27017/medismart_telemedicine';
         return { uri: stripQuotes(raw) };
       },
     }),

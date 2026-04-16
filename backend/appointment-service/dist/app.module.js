@@ -20,7 +20,7 @@ exports.AppModule = AppModule = __decorate([
             config_1.ConfigModule.forRoot({ isGlobal: true }),
             mongoose_1.MongooseModule.forRoot(process.env.MONGO_URI ??
                 process.env.MONGODB_URI ??
-                'mongodb://localhost:27017/healthcare-platform'),
+                'mongodb://localhost:27017/medismart_appointment'),
             appointments_module_1.AppointmentsModule,
         ],
     })

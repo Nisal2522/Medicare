@@ -39,7 +39,7 @@ exports.AppModule = AppModule = __decorate([
             }),
             mongoose_1.MongooseModule.forRoot(process.env.MONGO_URI ??
                 process.env.MONGODB_URI ??
-                'mongodb://localhost:27017/healthcare-platform'),
+                'mongodb://localhost:27017/medismart_notification'),
             mongoose_1.MongooseModule.forFeature([
                 { name: notification_schema_1.AppNotification.name, schema: notification_schema_1.AppNotificationSchema },
             ]),
