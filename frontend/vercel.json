@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    { "source": "/api/auth/:path*", "destination": "http://healthcare.20.204.188.106.nip.io/api/auth/:path*" },
+    { "source": "/api/doctor/:path*", "destination": "http://healthcare.20.204.188.106.nip.io/api/doctor/:path*" },
+    { "source": "/api/appointments/:path*", "destination": "http://healthcare.20.204.188.106.nip.io/api/appointments/:path*" },
+    { "source": "/api/patient/:path*", "destination": "http://healthcare.20.204.188.106.nip.io/api/patient/:path*" },
+    { "source": "/api/telecom/:path*", "destination": "http://healthcare.20.204.188.106.nip.io/api/telecom/:path*" },
+    { "source": "/api/ai/:path*", "destination": "http://healthcare.20.204.188.106.nip.io/api/ai/:path*" },
+    { "source": "/api/payments/:path*", "destination": "http://healthcare.20.204.188.106.nip.io/api/payments/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
