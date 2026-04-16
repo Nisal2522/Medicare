@@ -5,6 +5,7 @@ import {
   Get,
   Headers,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -17,6 +18,7 @@ import { AppointmentsService } from './appointments.service';
 import { BookAppointmentDto } from './dto/book-appointment.dto';
 import { CancelAppointmentDto } from './dto/cancel-appointment.dto';
 import { DoctorApprovalDto } from './dto/doctor-approval.dto';
+import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 
 @Controller('appointments')
 export class AppointmentsController {
@@ -50,6 +52,15 @@ export class AppointmentsController {
     @Headers('authorization') authorization?: string,
   ) {
     return this.appointments.cancelByPatient(id, dto.patientEmail, authorization);
+  }
+
+  @Patch(':id/reschedule')
+  reschedule(
+    @Param('id') id: string,
+    @Body() dto: RescheduleAppointmentDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    return this.appointments.rescheduleAppointment(id, dto, authorization);
   }
 
   @Get('public/stats')

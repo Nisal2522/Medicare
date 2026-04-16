@@ -11,7 +11,11 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  app.enableCors();
+  const origins = (process.env.CORS_ORIGINS ?? '').split(',').filter(Boolean);
+  app.enableCors({
+    origin: origins.length ? origins : true,
+    credentials: true,
+  });
   await app.listen(process.env.PORT ?? 3006);
 }
 bootstrap();

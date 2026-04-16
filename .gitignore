@@ -8,3 +8,13 @@ node_modules/
 # Build output
 dist/
 **/dist/
+
+# Logs
+logs/
+*.log   
+/docs
+CLAUDE.md
+
+infrastructure/kubernetes/02-secret.yaml
+
+

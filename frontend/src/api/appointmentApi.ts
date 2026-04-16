@@ -124,6 +124,30 @@ export async function cancelAppointment(
   return data
 }
 
+export type ReschedulePayload = {
+  patientEmail: string
+  appointmentDate: string
+  day: string
+  startTime: string
+  endTime: string
+}
+
+export async function rescheduleAppointment(
+  appointmentId: string,
+  payload: ReschedulePayload,
+  token?: string,
+): Promise<{ message: string; appointment: MyAppointmentRow }> {
+  const headers: Record<string, string> = {}
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+  const { data } = await appointmentApi.patch<{
+    message: string
+    appointment: MyAppointmentRow
+  }>(`/appointments/${appointmentId}/reschedule`, payload, { headers })
+  return data
+}
+
 export async function fetchPatientAppointments(
   patientId: string,
   token: string,

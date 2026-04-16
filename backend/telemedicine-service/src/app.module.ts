@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { join } from 'path';
 import { TelecomModule } from './telecom/telecom.module';
+import { HealthController } from './health.controller';
 
 function stripQuotes(s: string): string {
   return s.replace(/^["']|["']$/g, '').trim();
@@ -28,5 +29,6 @@ function stripQuotes(s: string): string {
     }),
     TelecomModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}

@@ -20,7 +20,9 @@ type SocketJwtPayload = {
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: (process.env.CORS_ORIGINS ?? '').split(',').filter(Boolean).length
+      ? (process.env.CORS_ORIGINS ?? '').split(',').filter(Boolean)
+      : '*',
     credentials: true,
   },
 })

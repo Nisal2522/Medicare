@@ -19,7 +19,11 @@ async function bootstrap() {
       noAck: false,
     },
   });
-  app.enableCors({ origin: true });
+  const origins = (process.env.CORS_ORIGINS ?? '').split(',').filter(Boolean);
+  app.enableCors({
+    origin: origins.length ? origins : true,
+    credentials: true,
+  });
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
   });

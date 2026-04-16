@@ -15,13 +15,18 @@ spec:
     spec:
       containers:
         - name: telemedicine-service
-          image: healthcare/telemedicine-service:latest
+          image: medicareacr.azurecr.io/healthcare/telemedicine-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3005
           env:
             - name: PORT
               value: '3005'
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: platform-secrets
+                  key: MONGO_URI_TELEMEDICINE
           envFrom:
             - configMapRef:
                 name: platform-config

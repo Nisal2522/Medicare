@@ -15,13 +15,18 @@ spec:
     spec:
       containers:
         - name: auth-service
-          image: healthcare/auth-service:latest
+          image: medicareacr.azurecr.io/healthcare/auth-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3002
           env:
             - name: PORT
               value: '3002'
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: platform-secrets
+                  key: MONGO_URI_AUTH
           envFrom:
             - configMapRef:
                 name: platform-config

@@ -15,14 +15,21 @@ spec:
     spec:
       containers:
         - name: ai-service
-          image: healthcare/ai-service:latest
+          image: medicareacr.azurecr.io/healthcare/ai-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3006
           env:
             - name: PORT
               value: '3006'
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: platform-secrets
+                  key: MONGO_URI_AI
           envFrom:
+            - configMapRef:
+                name: platform-config
             - secretRef:
                 name: platform-secrets
           resources:

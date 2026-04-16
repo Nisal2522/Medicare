@@ -5,7 +5,7 @@ metadata:
   name: appointment-service
   namespace: healthcare
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: appointment-service
@@ -16,13 +16,18 @@ spec:
     spec:
       containers:
         - name: appointment-service
-          image: healthcare/appointment-service:latest
+          image: medicareacr.azurecr.io/healthcare/appointment-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3003
           env:
             - name: PORT
               value: '3003'
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: platform-secrets
+                  key: MONGO_URI_APPOINTMENT
           envFrom:
             - configMapRef:
                 name: platform-config

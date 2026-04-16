@@ -15,11 +15,19 @@ spec:
     spec:
       containers:
         - name: notification-service
-          image: healthcare/notification-service:latest
+          image: medicareacr.azurecr.io/healthcare/notification-service:latest
           imagePullPolicy: IfNotPresent
+          env:
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: platform-secrets
+                  key: MONGO_URI_NOTIFICATION
           envFrom:
             - configMapRef:
                 name: platform-config
+            - secretRef:
+                name: platform-secrets
           resources:
             requests:
               cpu: 50m
