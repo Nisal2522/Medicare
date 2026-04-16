@@ -43,7 +43,7 @@ export default function PatientAppointmentsPage() {
       a.status === 'PENDING_PAYMENT' ||
       a.status === 'PENDING' ||
       a.status === 'CONFIRMED'
-    ) && a.status !== 'CANCELLED' && a.status !== 'COMPLETED'
+    )
   }
 
   async function openRescheduleModal(a: MyAppointmentRow) {
