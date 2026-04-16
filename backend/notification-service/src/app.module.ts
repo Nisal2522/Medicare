@@ -15,6 +15,7 @@ import {
 } from './notifications/notification.schema';
 import { NotificationStoreService } from './notifications/notification-store.service';
 import { UserNotificationsController } from './notifications/user-notifications.controller';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { UserNotificationsController } from './notifications/user-notifications.
       { name: AppNotification.name, schema: AppNotificationSchema },
     ]),
   ],
-  controllers: [NotificationsListener, SmsController, UserNotificationsController],
+  controllers: [NotificationsListener, SmsController, UserNotificationsController, HealthController],
   providers: [
     MailService,
     SmsService,
