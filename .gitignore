@@ -15,4 +15,6 @@ logs/
 /docs
 CLAUDE.md
 
+infrastructure/kubernetes/02-secret.yaml
+
 
