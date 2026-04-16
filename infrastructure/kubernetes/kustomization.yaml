@@ -5,7 +5,7 @@ resources:
   - 00-namespace.yaml
   - 01-configmap.yaml
   - 02-secret.yaml
-  - 03-mongodb.yaml
+  # - 03-mongodb.yaml  # Using MongoDB Atlas instead of in-cluster pod
   - 04-rabbitmq.yaml
   - notification-service.yaml
   - auth-service.yaml
@@ -15,5 +15,5 @@ resources:
   - patient-service.yaml
   - telemedicine-service.yaml
   - ai-service.yaml
-  - frontend.yaml
+  # - frontend.yaml  # Frontend deployed to Vercel, not in-cluster
   - ingress.yaml

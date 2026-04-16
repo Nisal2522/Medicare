@@ -16,13 +16,18 @@ spec:
     spec:
       containers:
         - name: payment-service
-          image: healthcare/payment-service:latest
+          image: medicareacr.azurecr.io/healthcare/payment-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3007
           env:
             - name: PORT
               value: '3007'
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: platform-secrets
+                  key: MONGO_URI_PAYMENT
           envFrom:
             - configMapRef:
                 name: platform-config

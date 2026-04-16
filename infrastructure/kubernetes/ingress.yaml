@@ -1,5 +1,5 @@
-# Requires ingress-nginx: https://kubernetes.github.io/ingress-nginx/deploy/
-# Add to hosts: 127.0.0.1 healthcare.local (or your LB IP)
+# Uses AKS App Routing add-on (managed nginx). Enable via:
+#   az aks approuting enable --resource-group medicare-rg --name medicare-aks
 # rewrite-target sends /api/<segment>/... to backend as /auth/..., /appointments/..., etc.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -10,9 +10,9 @@ metadata:
     nginx.ingress.kubernetes.io/use-regex: 'true'
     nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
-  ingressClassName: nginx
+  ingressClassName: webapprouting.kubernetes.azure.com
   rules:
-    - host: healthcare.local
+    - host: healthcare.20.204.188.106.nip.io
       http:
         paths:
           - path: /api/auth(/|$)(.*)
@@ -64,10 +64,3 @@ spec:
                 name: payment-service
                 port:
                   number: 3007
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: frontend
-                port:
-                  number: 80

@@ -15,13 +15,18 @@ spec:
     spec:
       containers:
         - name: patient-service
-          image: healthcare/patient-service:latest
+          image: medicareacr.azurecr.io/healthcare/patient-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3004
           env:
             - name: PORT
               value: '3004'
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: platform-secrets
+                  key: MONGO_URI_PATIENT
           envFrom:
             - configMapRef:
                 name: platform-config
