@@ -13,6 +13,14 @@ type NotificationPayload = {
 const WS_URL =
   import.meta.env.VITE_NOTIFICATION_WS_URL ?? 'http://localhost:3008'
 
+const WS_PATH =
+  import.meta.env.VITE_NOTIFICATION_WS_PATH ?? '/socket.io/'
+
+const WS_TRANSPORTS: ('polling' | 'websocket')[] =
+  import.meta.env.VITE_NOTIFICATION_WS_TRANSPORT === 'polling'
+    ? ['polling']
+    : ['websocket']
+
 function toastPayload(payload: NotificationPayload, fallback: string) {
   const title = payload.title?.trim()
   const message = payload.message?.trim()
@@ -39,7 +47,8 @@ export function RealtimeNotifications() {
     if (!token || !user) return
 
     const socket = io(WS_URL, {
-      transports: ['websocket'],
+      path: WS_PATH,
+      transports: WS_TRANSPORTS,
       auth: { token },
     })
 
