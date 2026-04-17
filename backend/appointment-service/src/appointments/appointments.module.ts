@@ -1,3 +1,7 @@
+// AppointmentsModule
+// - Registers MongoDB models, authentication, HTTP client, and message clients.
+// - Exposes controllers and providers for appointment-related functionality.
+// Keep comments concise to help future maintainers understand module wiring.
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
@@ -17,15 +21,23 @@ import { PaymentSuccessListener } from './payment-success.listener';
 
 @Module({
   imports: [
+    // Mongoose schemas used by this module
     MongooseModule.forFeature([
       { name: Appointment.name, schema: AppointmentSchema },
       { name: Prescription.name, schema: PrescriptionSchema },
     ]),
+
+    // Authentication: Passport with JWT strategy
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
+      // Use env var in production; fallback for local dev
       secret: process.env.JWT_SECRET ?? 'change-me-secret',
     }),
+
+    // Outgoing HTTP client configuration
     HttpModule.register({ timeout: 12_000, maxRedirects: 3 }),
+
+    // RabbitMQ clients used to publish notifications and patient events
     ClientsModule.register([
       {
         name: 'NOTIFICATIONS_CLIENT',
@@ -47,11 +59,15 @@ import { PaymentSuccessListener } from './payment-success.listener';
       },
     ]),
   ],
+
+  // Controllers exposed by this module
   controllers: [
     AppointmentsController,
     InternalAppointmentsController,
     PrescriptionsController,
   ],
+
+  // Services and providers instantiated in this module
   providers: [
     AppointmentsService,
     PrescriptionsService,
@@ -59,6 +75,8 @@ import { PaymentSuccessListener } from './payment-success.listener';
     PaymentSuccessListener,
     InternalKeyGuard,
   ],
+
+  // Export the main service for use in other modules
   exports: [AppointmentsService],
 })
 export class AppointmentsModule {}
