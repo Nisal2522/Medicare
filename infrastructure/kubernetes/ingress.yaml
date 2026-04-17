@@ -64,3 +64,10 @@ spec:
                 name: payment-service
                 port:
                   number: 3007
+          - path: /api/notifications(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 3008
