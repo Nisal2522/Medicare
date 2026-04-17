@@ -17,7 +17,11 @@ spec:
         - name: notification-service
           image: medicareacr.azurecr.io/healthcare/notification-service:latest
           imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3008
           env:
+            - name: PORT
+              value: '3008'
             - name: MONGO_URI
               valueFrom:
                 secretKeyRef:
@@ -36,12 +40,25 @@ spec:
               cpu: 250m
               memory: 384Mi
           livenessProbe:
-            exec:
-              command: ['pgrep', '-f', 'node']
+            tcpSocket:
+              port: 3008
             initialDelaySeconds: 20
             periodSeconds: 30
           readinessProbe:
-            exec:
-              command: ['pgrep', '-f', 'node']
+            tcpSocket:
+              port: 3008
             initialDelaySeconds: 10
             periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: healthcare
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - port: 3008
+      targetPort: 3008
+  type: ClusterIP
