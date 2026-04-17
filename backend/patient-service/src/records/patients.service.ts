@@ -40,7 +40,7 @@ export class PatientsService {
     private readonly paymentModel: Model<PatientPayment>,
     private readonly medicalFileStorage: MedicalFileStorageService,
     private readonly config: ConfigService,
-  ) {}
+  ) { }
 
   async ensureProfileForRegisteredPatient(
     userId: string,
@@ -111,10 +111,10 @@ export class PatientsService {
     const appointmentId = event.appointmentId;
     let appointment: { patientId: Types.ObjectId } | null =
       await this.appointmentAccessModel
-      .findById(new Types.ObjectId(appointmentId))
-      .select({ patientId: 1 })
-      .lean()
-      .exec();
+        .findById(new Types.ObjectId(appointmentId))
+        .select({ patientId: 1 })
+        .lean()
+        .exec();
     if (!appointment) {
       const synced = await this.syncAppointmentProjectionFromSnapshot(appointmentId);
       if (!synced) return;
@@ -196,7 +196,7 @@ export class PatientsService {
     }
 
     const withTs = lean as typeof lean & { createdAt?: Date };
-    return this.mapRow({
+    return this.mapRowWithResolvedUrl({
       _id: lean._id,
       patientId: lean.patientId,
       type: lean.type,
@@ -236,9 +236,8 @@ export class PatientsService {
       .lean()
       .exec();
 
-    return rows
-      .filter((r) => !this.isDemoRecordUrl(r.fileUrl))
-      .map((r) => this.mapRow(r));
+    const filtered = rows.filter((r) => !this.isDemoRecordUrl(r.fileUrl));
+    return Promise.all(filtered.map((r) => this.mapRowWithResolvedUrl(r)));
   }
 
   async getPrescriptionsForPatient(patientId: string) {
@@ -252,9 +251,8 @@ export class PatientsService {
       .lean()
       .exec();
 
-    return rows
-      .filter((r) => !this.isDemoRecordUrl(r.fileUrl))
-      .map((r) => this.mapRow(r));
+    const filtered = rows.filter((r) => !this.isDemoRecordUrl(r.fileUrl));
+    return Promise.all(filtered.map((r) => this.mapRowWithResolvedUrl(r)));
   }
 
   async getPaymentsForPatient(patientId: string) {
@@ -459,12 +457,12 @@ export class PatientsService {
         .findById(appointmentOid)
         .lean()
         .exec() as Promise<{
-        _id: Types.ObjectId;
-        doctorId: Types.ObjectId;
-        patientId: Types.ObjectId;
-        doctorApprovalStatus: string;
-        status: string;
-      } | null>;
+          _id: Types.ObjectId;
+          doctorId: Types.ObjectId;
+          patientId: Types.ObjectId;
+          doctorApprovalStatus: string;
+          status: string;
+        } | null>;
     } catch {
       return null;
     }
@@ -572,6 +570,23 @@ export class PatientsService {
       fileUrl: r.fileUrl,
       createdAt: r.createdAt,
     };
+  }
+
+  private async mapRowWithResolvedUrl(r: {
+    _id: Types.ObjectId;
+    patientId: Types.ObjectId;
+    type: MedicalRecordType;
+    title: string;
+    doctorName: string;
+    specialty?: string;
+    reportCategory?: string;
+    fileName: string;
+    fileUrl: string;
+    createdAt?: Date;
+  }) {
+    const resolvedFileUrl =
+      (await this.medicalFileStorage.resolvePublicReadUrl(r.fileUrl)) ?? r.fileUrl;
+    return this.mapRow({ ...r, fileUrl: resolvedFileUrl });
   }
 
   private mapPayment(p: {
