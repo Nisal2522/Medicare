@@ -236,9 +236,16 @@ export class PatientsService {
       .lean()
       .exec();
 
-    return rows
-      .filter((r) => !this.isDemoRecordUrl(r.fileUrl))
-      .map((r) => this.mapRow(r));
+    const filtered = rows.filter((r) => !this.isDemoRecordUrl(r.fileUrl));
+    return Promise.all(
+      filtered.map(async (r) => {
+        const mapped = this.mapRow(r);
+        mapped.fileUrl =
+          (await this.medicalFileStorage.resolvePublicReadUrl(r.fileUrl)) ??
+          r.fileUrl;
+        return mapped;
+      }),
+    );
   }
 
   async getPrescriptionsForPatient(patientId: string) {
@@ -252,9 +259,16 @@ export class PatientsService {
       .lean()
       .exec();
 
-    return rows
-      .filter((r) => !this.isDemoRecordUrl(r.fileUrl))
-      .map((r) => this.mapRow(r));
+    const filtered = rows.filter((r) => !this.isDemoRecordUrl(r.fileUrl));
+    return Promise.all(
+      filtered.map(async (r) => {
+        const mapped = this.mapRow(r);
+        mapped.fileUrl =
+          (await this.medicalFileStorage.resolvePublicReadUrl(r.fileUrl)) ??
+          r.fileUrl;
+        return mapped;
+      }),
+    );
   }
 
   async getPaymentsForPatient(patientId: string) {
