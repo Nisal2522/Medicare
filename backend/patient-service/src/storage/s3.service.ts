@@ -91,15 +91,52 @@ export class S3Service {
   }
 
   private extractKeyFromPublicUrl(fileUrl: string): string | null {
-    if (!this.bucket || !this.publicUrlBase) {
+    if (!this.bucket) {
       return null;
     }
-    const base = this.publicUrlBase.replace(/\/$/, '');
     const trimmed = fileUrl.trim();
-    if (!trimmed.startsWith(base)) {
-      return null;
+
+    if (this.publicUrlBase) {
+      const base = this.publicUrlBase.replace(/\/$/, '');
+      if (trimmed.startsWith(base)) {
+        const key = trimmed.slice(base.length).replace(/^\//, '');
+        return key || null;
+      }
     }
-    const key = trimmed.slice(base.length).replace(/^\//, '');
-    return key || null;
+
+    try {
+      const parsed = new URL(trimmed);
+      const host = parsed.hostname.toLowerCase();
+      const pathPart = parsed.pathname.replace(/^\/+/, '');
+
+      if (!pathPart) {
+        return null;
+      }
+
+      // Virtual-hosted style:
+      //   https://{bucket}.s3.{region}.amazonaws.com/{key}
+      if (host.startsWith(`${this.bucket.toLowerCase()}.`)) {
+        return pathPart;
+      }
+
+      // Path style:
+      //   https://s3.{region}.amazonaws.com/{bucket}/{key}
+      if (pathPart.startsWith(`${this.bucket}/`)) {
+        const key = pathPart.slice(this.bucket.length + 1);
+        return key || null;
+      }
+
+      // Generic fallback for our known object prefixes.
+      if (
+        pathPart.startsWith('medical-reports/') ||
+        pathPart.startsWith('profile-avatars/')
+      ) {
+        return pathPart;
+      }
+    } catch {
+      // ignore parse errors, handled below
+    }
+
+    return null;
   }
 }
