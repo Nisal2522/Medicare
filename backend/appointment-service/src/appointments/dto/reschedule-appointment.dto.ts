@@ -21,6 +21,7 @@ export class RescheduleAppointmentDto {
   @IsString()
   @IsNotEmpty()
   startTime!: string;
+ 
 
   // Required: new appointment end time (e.g., "09:30")
   @IsString()
