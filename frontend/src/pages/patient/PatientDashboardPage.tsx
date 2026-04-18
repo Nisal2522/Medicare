@@ -24,7 +24,11 @@ import {
   fetchPatientAppointments,
   type MyAppointmentRow,
 } from '../../api/appointmentApi'
-import { fetchPatientRecords, type MedicalRecordRow } from '../../api/patientApi'
+import {
+  fetchPatientRecords,
+  resolvePatientRecordFileUrl,
+  type MedicalRecordRow,
+} from '../../api/patientApi'
 import { DoctorApprovalChip } from '../../components/DoctorApprovalChip'
 import { brandButtonClass } from '../../components/LandingNavbar'
 import { dashboardCardClass } from '../../components/dashboardShell'
@@ -614,7 +618,7 @@ export default function PatientDashboardPage() {
                     </p>
                   </div>
                   <a
-                    href={r.fileUrl}
+                    href={resolvePatientRecordFileUrl(r.fileUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="shrink-0 rounded-xl p-2 text-sky-700 hover:bg-sky-50"
@@ -669,7 +673,7 @@ export default function PatientDashboardPage() {
                         <td className="py-3">
                           <div className="flex gap-1">
                             <a
-                              href={r.fileUrl}
+                              href={resolvePatientRecordFileUrl(r.fileUrl)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="rounded-xl p-2 text-sky-700 hover:bg-sky-50"
@@ -678,7 +682,7 @@ export default function PatientDashboardPage() {
                               <Eye className="h-4 w-4" aria-hidden />
                             </a>
                             <a
-                              href={r.fileUrl}
+                              href={resolvePatientRecordFileUrl(r.fileUrl)}
                               download
                               className="rounded-xl p-2 text-sky-700 hover:bg-sky-50"
                               aria-label="Download"

@@ -150,7 +150,17 @@ export class NotificationQueueConsumer
               <table role="presentation" width="100%">
                 <tr>
                   <td style="font-size:22px;font-weight:800;color:#ffffff;">MediSmart AI</td>
-                  <td align="right" style="color:#e0f2fe;font-size:12px;">[ LOGO ]</td>
+                  <td align="right">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;">
+                      <tr>
+                        <td style="width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.35);text-align:center;vertical-align:middle;">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="display:block;margin:0 auto;">
+                            <path d="M3 12H7L10 7L14 17L17 12H21" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
                 </tr>
               </table>
             </td>

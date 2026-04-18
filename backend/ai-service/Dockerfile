@@ -2,7 +2,7 @@ FROM node:20-alpine3.21 AS builder
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 COPY . .
 RUN npm run build && npm prune --omit=dev
 
