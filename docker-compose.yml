@@ -4,6 +4,7 @@
 #
 # MongoDB Atlas: set MONGO_URI_* in `.env` (see .env.example). If unset, services use local `mongodb` container.
 # Browser: http://localhost:8080
+# Medical files: patient-service keeps /app/uploads on volume `patient_uploads`. Set PATIENT_API_PUBLIC_URL for prod.
 
 services:
   mongodb:
@@ -135,6 +136,10 @@ services:
       MONGO_URI: ${MONGO_URI_PATIENT:-mongodb://mongodb:27017/medismart_patient}
       RABBITMQ_URL: amqp://rabbitmq:5672
       JWT_SECRET: ${JWT_SECRET:-change-me-secret}
+      # Browser-reachable origin for local file URLs (/uploads/...). Override in prod (e.g. https://api.example.com).
+      PATIENT_API_PUBLIC_URL: ${PATIENT_API_PUBLIC_URL:-http://localhost:3004}
+    volumes:
+      - patient_uploads:/app/uploads
     depends_on:
       - mongodb
     networks:
@@ -264,3 +269,4 @@ networks:
 volumes:
   mongo_data:
   rabbitmq_data:
+  patient_uploads:

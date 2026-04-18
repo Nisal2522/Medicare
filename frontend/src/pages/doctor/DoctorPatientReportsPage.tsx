@@ -11,7 +11,11 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { fetchPatientRecords, type MedicalRecordRow } from '../../api/patientApi'
+import {
+  fetchPatientRecords,
+  resolvePatientRecordFileUrl,
+  type MedicalRecordRow,
+} from '../../api/patientApi'
 import { useAuth } from '../../context/AuthContext'
 
 type ReportCategory = 'all' | 'blood' | 'imaging' | 'prescription' | 'other'
@@ -303,6 +307,7 @@ export default function DoctorPatientReportsPage() {
             const cat = inferCategory(r)
             const meta = CATEGORY_META[cat]
             const kind = fileKind(r.fileName)
+            const fileHref = resolvePatientRecordFileUrl(r.fileUrl)
             return (
               <li key={r.id}>
                 <article
@@ -332,7 +337,7 @@ export default function DoctorPatientReportsPage() {
                       className={actionBtn}
                       onClick={() =>
                         setPreview({
-                          url: r.fileUrl,
+                          url: fileHref,
                           title: r.title,
                           kind,
                         })
@@ -346,7 +351,7 @@ export default function DoctorPatientReportsPage() {
                       type="button"
                       className={actionBtn}
                       onClick={() => {
-                        window.open(r.fileUrl, '_blank', 'noopener,noreferrer')
+                        window.open(fileHref, '_blank', 'noopener,noreferrer')
                       }}
                       aria-label="Download"
                       title="Download"

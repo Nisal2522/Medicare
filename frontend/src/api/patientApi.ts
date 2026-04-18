@@ -1,9 +1,40 @@
 import axios from 'axios'
 
+const patientApiBaseUrl = () =>
+  (import.meta.env.VITE_PATIENT_API_URL ?? 'http://localhost:3004').replace(
+    /\/$/,
+    '',
+  )
+
 const patientApi = axios.create({
-  baseURL: import.meta.env.VITE_PATIENT_API_URL ?? 'http://localhost:3004',
+  baseURL: patientApiBaseUrl(),
   headers: { 'Content-Type': 'application/json' },
 })
+
+/**
+ * DB may still hold `http://localhost:.../uploads/...` while the SPA talks to another
+ * `VITE_PATIENT_API_URL` (e.g. deployed API). Point `/uploads/...` at the configured patient API.
+ */
+export function resolvePatientRecordFileUrl(fileUrl: string): string {
+  if (!fileUrl) return fileUrl
+  const base = patientApiBaseUrl()
+  try {
+    const u = new URL(fileUrl)
+    if (!u.pathname.startsWith('/uploads/')) {
+      return fileUrl
+    }
+    const apiOrigin = new URL(base.endsWith('/') ? base : `${base}/`).origin
+    if (u.origin === apiOrigin) {
+      return fileUrl
+    }
+    return `${base}${u.pathname}${u.search}`
+  } catch {
+    if (fileUrl.startsWith('/uploads/')) {
+      return `${base}${fileUrl}`
+    }
+    return fileUrl
+  }
+}
 
 export type MedicalRecordRow = {
   id: string

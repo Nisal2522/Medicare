@@ -47,7 +47,7 @@ export class MedicalFileStorageService {
 
     const bucket = this.config.get<string>('AWS_S3_BUCKET_NAME')?.trim();
     if (!bucket) {
-      return url;
+      return this.normalizeLocalPublicUrl(url);
     }
 
     try {
@@ -58,6 +58,29 @@ export class MedicalFileStorageService {
       );
       return url;
     }
+  }
+
+  /**
+   * Re-attach stored `/uploads/...` paths to PATIENT_API_PUBLIC_URL so deploys are not stuck
+   * with `localhost` URLs from older uploads or misconfigured saves.
+   */
+  private normalizeLocalPublicUrl(url: string): string {
+    const base = this.config
+      .get<string>('PATIENT_API_PUBLIC_URL')
+      ?.trim()
+      .replace(/\/$/, '');
+    if (!base) {
+      return url;
+    }
+    try {
+      const u = new URL(url);
+      if (u.pathname.startsWith('/uploads/')) {
+        return `${base}${u.pathname}${u.search}`;
+      }
+    } catch {
+      /* ignore */
+    }
+    return url;
   }
 
   private isS3UploadFallbackError(err: unknown): boolean {
